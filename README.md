@@ -35,7 +35,8 @@ The agent moves left, right, or jumps with discrete actions. Reaching the far ri
 
 ## Quick Start
 
-Run the environment with the included script:
+Run the environment with the included script from the repository root. The
+environment is registered automatically when ``gym_terraria`` is imported:
 
 ```bash
 python run_env.py

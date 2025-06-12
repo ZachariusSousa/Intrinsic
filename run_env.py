@@ -1,9 +1,11 @@
+"""Simple script to play the Terraria gym environment."""
+
 import pygame
 import gym
-from gym_terraria import TerrariaEnv
+import gym_terraria
 
 def main():
-    pygame.init()  # Initialize pygame
+    pygame.init()
     env = gym.make("Terraria-v0")
     obs, info = env.reset()
     done = False
@@ -15,7 +17,7 @@ def main():
         obs, reward, done, truncated, info = env.step(action)
         env.render()
     env.close()
-    pygame.quit()  # Quit pygame
+    pygame.quit()
 
 if __name__ == "__main__":
     main()
