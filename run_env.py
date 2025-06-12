@@ -4,6 +4,7 @@ import argparse
 import pygame
 import gym
 import gym_terraria
+import numpy as np
 
 def main():
     parser = argparse.ArgumentParser(description="Run the Terraria gym environment")
@@ -26,17 +27,14 @@ def main():
 
         if args.control == "manual":
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                action = 0
-            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                action = 1
-            elif keys[pygame.K_SPACE] or keys[pygame.K_UP]:
-                action = 2
-            else:
-                action = 3
+            action = np.array([
+                keys[pygame.K_LEFT] or keys[pygame.K_a],   # left
+                keys[pygame.K_RIGHT] or keys[pygame.K_d],  # right
+                keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]  # jump
+            ], dtype=np.int8)
         else:
             action = env.action_space.sample()
-
+            
         obs, reward, done, truncated, info = env.step(action)
         env.render()
     env.close()

@@ -45,14 +45,18 @@ class TerrariaEnv(gym.Env):
         return np.array([self.player.x, self.player.y, self.velocity[0], self.velocity[1]], dtype=np.float32)
 
     def step(self, action):
-        if action == 0:  # left
+        left, right, jump = action
+
+        # horizontal movement
+        if left and not right:
             self.velocity[0] = -self.speed
-        elif action == 1:  # right
+        elif right and not left:
             self.velocity[0] = self.speed
-        else:  # idle or jump
+        else:
             self.velocity[0] = 0
 
-        if action == 2 and self._on_ground():
+        # jump
+        if jump and self._on_ground():
             self.velocity[1] = self.jump_velocity
 
         # apply gravity
