@@ -15,7 +15,7 @@ class TerrariaEnv(gym.Env):
         self.screen_height = 480
         self.tile_size = 32
 
-        self.action_space = spaces.Discrete(3)  # 0 left, 1 right, 2 jump
+        self.action_space = spaces.Discrete(4)  # 0 left, 1 right, 2 jump, 3 idle
 
         high = np.array(
             [self.screen_width, self.screen_height, np.finfo(np.float32).max, np.finfo(np.float32).max],
@@ -49,7 +49,7 @@ class TerrariaEnv(gym.Env):
             self.velocity[0] = -self.speed
         elif action == 1:  # right
             self.velocity[0] = self.speed
-        else:
+        else:  # idle or jump
             self.velocity[0] = 0
 
         if action == 2 and self._on_ground():

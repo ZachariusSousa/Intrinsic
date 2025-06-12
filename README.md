@@ -35,7 +35,7 @@ for _ in range(1000):
 env.close()
 ```
 
-The agent moves left, right, or jumps with discrete actions. Reaching the far right side of the screen ends the episode with a reward of `1.0`.
+The agent moves left, right, jumps, or stays idle with discrete actions. Reaching the far right side of the screen ends the episode with a reward of `1.0`.
 
 ## Quick Start
 
@@ -43,5 +43,7 @@ Run the environment with the included script from the repository root. The
 environment is registered automatically when ``gym_terraria`` is imported:
 
 ```bash
-python run_env.py
+python run_env.py              # AI-controlled random actions
+python run_env.py --control manual  # Play manually with the keyboard
 ```
+When playing manually use the arrow keys (or ``A``/``D``) to move and ``Space`` to jump.
