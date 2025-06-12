@@ -7,8 +7,12 @@ This repository provides a minimal 2D platformer environment similar to Terraria
 Make sure you have Python 3 installed. Then install the required packages:
 
 ```bash
-pip install pygame gym
+pip install pygame gym numpy
 ```
+
+Older versions of NumPy (<1.24) don't expose ``np.bool8`` which the Gym
+wrappers expect. The package automatically provides a fallback so upgrading
+NumPy is optional.
 
 ## Usage
 
@@ -35,7 +39,8 @@ The agent moves left, right, or jumps with discrete actions. Reaching the far ri
 
 ## Quick Start
 
-Run the environment with the included script:
+Run the environment with the included script from the repository root. The
+environment is registered automatically when ``gym_terraria`` is imported:
 
 ```bash
 python run_env.py
