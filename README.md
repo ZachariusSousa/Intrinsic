@@ -7,8 +7,12 @@ This repository provides a minimal 2D platformer environment similar to Terraria
 Make sure you have Python 3 installed. Then install the required packages:
 
 ```bash
-pip install pygame gym
+pip install pygame gym numpy
 ```
+
+Older versions of NumPy (<1.24) don't expose ``np.bool8`` which the Gym
+wrappers expect. The package automatically provides a fallback so upgrading
+NumPy is optional.
 
 ## Usage
 
