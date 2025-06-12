@@ -32,3 +32,11 @@ env.close()
 ```
 
 The agent moves left, right, or jumps with discrete actions. Reaching the far right side of the screen ends the episode with a reward of `1.0`.
+
+## Quick Start
+
+Run the environment with the included script:
+
+```bash
+python run_env.py
+```
