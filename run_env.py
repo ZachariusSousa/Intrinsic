@@ -1,9 +1,9 @@
 import pygame
 import gym
-import gym_terraria
-
+from gym_terraria import TerrariaEnv
 
 def main():
+    pygame.init()  # Initialize pygame
     env = gym.make("Terraria-v0")
     obs, info = env.reset()
     done = False
@@ -15,7 +15,7 @@ def main():
         obs, reward, done, truncated, info = env.step(action)
         env.render()
     env.close()
-
+    pygame.quit()  # Quit pygame
 
 if __name__ == "__main__":
     main()
