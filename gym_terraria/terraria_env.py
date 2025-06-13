@@ -42,10 +42,14 @@ class TerrariaEnv(gym.Env):
         self._update_blocks()
 
         # Camera offset for rendering larger worlds
+        self.camera_x = 0
         self.camera_y = 0
 
         # Simple inventory for mined blocks
         self.inventory = {"dirt": 10, "stone": 0, "ore": 0}
+
+        # Font for UI rendering
+        self.font = None
 
         self.screen = None
         self.clock = None
@@ -144,11 +148,21 @@ class TerrariaEnv(gym.Env):
                     self.inventory["ore"] += 1
                 self._update_blocks()
 
+        # extend world horizontally when approaching edges
+        threshold = self.tile_size * 5
+        if self.player.right > self.grid_width * self.tile_size - threshold:
+            self._extend_world_right(self.grid_width // 2)
+        if self.player.left < threshold:
+            self._extend_world_left(self.grid_width // 2)
+
+        # update camera to follow player horizontally
+        world_w = self.grid_width * self.tile_size
+        world_h = self.grid_height * self.tile_size
+        self.camera_x = int(self.player.centerx - self.screen_width // 2)
+        self.camera_x = max(0, min(self.camera_x, world_w - self.screen_width))
+
         done = False
         reward = 0.0
-        if self.player.right >= self.screen_width:
-            done = True
-            reward = 1.0
 
         return self._get_obs(), reward, done, False, {}
 
@@ -169,18 +183,19 @@ class TerrariaEnv(gym.Env):
             pygame.init()
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             self.clock = pygame.time.Clock()
+            self.font = pygame.font.SysFont(None, 24)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.close()
                 return
         self.screen.fill((135, 206, 235))  # sky blue
         for rect, block in self.blocks:
-            screen_rect = rect.move(0, -self.camera_y)
+            screen_rect = rect.move(-self.camera_x, -self.camera_y)
             if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
                 continue
             color = world.COLOR_MAP.get(block, (255, 255, 255))
             pygame.draw.rect(self.screen, color, screen_rect)
-        pygame.draw.rect(self.screen, (255, 0, 0), self.player.move(0, -self.camera_y))
+        pygame.draw.rect(self.screen, (255, 0, 0), self.player.move(-self.camera_x, -self.camera_y))
 
         # draw facing indicator
         fx = self.player.centerx + self.facing[0] * self.tile_size // 2
@@ -188,8 +203,14 @@ class TerrariaEnv(gym.Env):
         pygame.draw.rect(
             self.screen,
             (255, 255, 0),
-            pygame.Rect(fx - 4, fy - self.camera_y - 4, 8, 8),
+            pygame.Rect(fx - 4 - self.camera_x, fy - self.camera_y - 4, 8, 8),
         )
+
+        # draw inventory UI
+        if self.font:
+            inv_text = " | ".join(f"{k}: {v}" for k, v in self.inventory.items())
+            text_surf = self.font.render(inv_text, True, (0, 0, 0))
+            self.screen.blit(text_surf, (10, 10))
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -198,6 +219,21 @@ class TerrariaEnv(gym.Env):
         if self.screen is not None:
             pygame.quit()
             self.screen = None
+
+    def _extend_world_right(self, extra_cols):
+        """Extend the world grid to the right by generating additional columns."""
+        new_grid = world.generate_world(extra_cols, self.grid_height)
+        self.grid = np.concatenate([self.grid, new_grid], axis=1)
+        self.grid_width += extra_cols
+        self._update_blocks()
+
+    def _extend_world_left(self, extra_cols):
+        """Extend the world grid to the left by generating additional columns."""
+        new_grid = world.generate_world(extra_cols, self.grid_height)
+        self.grid = np.concatenate([new_grid, self.grid], axis=1)
+        self.grid_width += extra_cols
+        self.player.x += extra_cols * self.tile_size
+        self._update_blocks()
 
     def _update_blocks(self):
         """Recreate block rectangles from the grid for collision and rendering."""
