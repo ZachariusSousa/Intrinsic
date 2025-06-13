@@ -46,7 +46,14 @@ class TerrariaEnv(gym.Env):
         self.camera_y = 0
 
         # Simple inventory for mined blocks
-        self.inventory = {"dirt": 10, "stone": 0, "ore": 0}
+        self.inventory = {
+            "dirt": 10,
+            "stone": 0,
+            "copper": 0,
+            "iron": 0,
+            "gold": 0,
+            "wood": 0,
+        }
 
         # Font for UI rendering
         self.font = None
@@ -59,7 +66,14 @@ class TerrariaEnv(gym.Env):
         self.player.x = 50
         self.player.y = self.screen_height - self.tile_size * 2
         self.velocity = [0.0, 0.0]
-        self.inventory = {"dirt": 10, "stone": 0, "ore": 0}
+        self.inventory = {
+            "dirt": 10,
+            "stone": 0,
+            "copper": 0,
+            "iron": 0,
+            "gold": 0,
+            "wood": 0,
+        }
         self.facing = [1, 0]
         return self._get_obs(), {}
 
@@ -144,8 +158,14 @@ class TerrariaEnv(gym.Env):
                     self.inventory["dirt"] += 1
                 elif block == world.STONE:
                     self.inventory["stone"] += 1
-                elif block == world.ORE:
-                    self.inventory["ore"] += 1
+                elif block == world.COPPER_ORE:
+                    self.inventory["copper"] += 1
+                elif block == world.IRON_ORE:
+                    self.inventory["iron"] += 1
+                elif block == world.GOLD_ORE:
+                    self.inventory["gold"] += 1
+                elif block == world.WOOD:
+                    self.inventory["wood"] += 1
                 self._update_blocks()
 
         # extend world horizontally when approaching edges
