@@ -30,7 +30,7 @@ class TerrariaEnv(gym.Env):
 
         self.player = pygame.Rect(50, self.screen_height - self.tile_size * 2, self.tile_size, self.tile_size)
         self.velocity = [0.0, 0.0]
-        self.facing = 1  # 1 right, -1 left
+        self.facing = [1, 0]  # initially facing right
 
         # Grid based world
         self.grid_width = self.screen_width // self.tile_size
@@ -40,7 +40,7 @@ class TerrariaEnv(gym.Env):
         self._update_blocks()
 
         # Simple inventory: only dirt blocks
-        self.inventory = {"dirt": 0}
+        self.inventory = {"dirt": 10}
 
         self.screen = None
         self.clock = None
@@ -50,7 +50,8 @@ class TerrariaEnv(gym.Env):
         self.player.x = 50
         self.player.y = self.screen_height - self.tile_size * 2
         self.velocity = [0.0, 0.0]
-        self.inventory = {"dirt": self.inventory.get("dirt", 0)}
+        self.inventory = {"dirt": 10}
+        self.facing = [1, 0]
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -59,15 +60,25 @@ class TerrariaEnv(gym.Env):
     def step(self, action):
         left, right, jump, place, destroy = action
 
-        # horizontal movement
+        keys = pygame.key.get_pressed()
+
+        # update movement
         if left and not right:
             self.velocity[0] = -self.speed
-            self.facing = -1
         elif right and not left:
             self.velocity[0] = self.speed
-            self.facing = 1
         else:
             self.velocity[0] = 0
+
+        # update facing based on keys (arrow keys or WASD)
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            self.facing = [-1, 0]
+        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            self.facing = [1, 0]
+        elif keys[pygame.K_UP] or keys[pygame.K_w]:
+            self.facing = [0, -1]
+        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            self.facing = [0, 1]
 
         # jump
         if jump and self._on_ground():
@@ -100,8 +111,12 @@ class TerrariaEnv(gym.Env):
         self.player.y = max(0, min(self.player.y, self.screen_height - self.player.height))
 
         # block placement and destruction
-        target_x = self.player.centerx // self.tile_size + self.facing
-        target_y = self.player.centery // self.tile_size
+        px = self.player.centerx // self.tile_size
+        py = self.player.centery // self.tile_size
+        dx, dy = self.facing
+        target_x = px + dx
+        target_y = py + dy
+
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
             if place and self.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == 0:
                 self.grid[target_y, target_x] = 1
@@ -109,7 +124,7 @@ class TerrariaEnv(gym.Env):
                 self._update_blocks()
             if destroy and self.grid[target_y, target_x] == 1:
                 self.grid[target_y, target_x] = 0
-                self.inventory["dirt"] = self.inventory.get("dirt", 0) + 1
+                self.inventory["dirt"] += 1
                 self._update_blocks()
 
         done = False
@@ -144,6 +159,12 @@ class TerrariaEnv(gym.Env):
         for rect in self.blocks:
             pygame.draw.rect(self.screen, (139, 69, 19), rect)
         pygame.draw.rect(self.screen, (255, 0, 0), self.player)
+
+        # draw facing indicator
+        fx = self.player.centerx + self.facing[0] * self.tile_size // 2
+        fy = self.player.centery + self.facing[1] * self.tile_size // 2d
+        pygame.draw.rect(self.screen, (255, 255, 0), pygame.Rect(fx - 4, fy - 4, 8, 8))
+
         pygame.display.flip()
         self.clock.tick(60)
 
@@ -165,4 +186,3 @@ class TerrariaEnv(gym.Env):
                         self.tile_size,
                     )
                     self.blocks.append(rect)
-
