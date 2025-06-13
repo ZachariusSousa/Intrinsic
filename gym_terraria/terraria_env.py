@@ -3,6 +3,8 @@ import numpy as np
 import gym
 from gym import spaces
 
+from . import world
+
 
 class TerrariaEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
@@ -32,15 +34,18 @@ class TerrariaEnv(gym.Env):
         self.velocity = [0.0, 0.0]
         self.facing = [1, 0]  # initially facing right
 
-        # Grid based world
+        # World dimensions may extend beyond the screen
         self.grid_width = self.screen_width // self.tile_size
-        self.grid_height = self.screen_height // self.tile_size
-        self.grid = np.zeros((self.grid_height, self.grid_width), dtype=np.int8)
-        self.grid[-1, :] = 1  # ground blocks
+        self.grid_height = (self.screen_height // self.tile_size) * 2
+
+        self.grid = world.generate_world(self.grid_width, self.grid_height)
         self._update_blocks()
 
-        # Simple inventory: only dirt blocks
-        self.inventory = {"dirt": 10}
+        # Camera offset for rendering larger worlds
+        self.camera_y = 0
+
+        # Simple inventory for mined blocks
+        self.inventory = {"dirt": 10, "stone": 0, "ore": 0}
 
         self.screen = None
         self.clock = None
@@ -50,7 +55,7 @@ class TerrariaEnv(gym.Env):
         self.player.x = 50
         self.player.y = self.screen_height - self.tile_size * 2
         self.velocity = [0.0, 0.0]
-        self.inventory = {"dirt": 10}
+        self.inventory = {"dirt": 10, "stone": 0, "ore": 0}
         self.facing = [1, 0]
         return self._get_obs(), {}
 
@@ -89,7 +94,7 @@ class TerrariaEnv(gym.Env):
 
         # update position and handle collisions with blocks
         self.player.x += int(self.velocity[0])
-        for rect in self.blocks:
+        for rect, _ in self.blocks:
             if self.player.colliderect(rect):
                 if self.velocity[0] > 0:
                     self.player.right = rect.left
@@ -98,7 +103,7 @@ class TerrariaEnv(gym.Env):
                 self.velocity[0] = 0
 
         self.player.y += int(self.velocity[1])
-        for rect in self.blocks:
+        for rect, _ in self.blocks:
             if self.player.colliderect(rect):
                 if self.velocity[1] > 0:
                     self.player.bottom = rect.top
@@ -107,8 +112,14 @@ class TerrariaEnv(gym.Env):
                 self.velocity[1] = 0
 
         # world boundaries
-        self.player.x = max(0, min(self.player.x, self.screen_width - self.player.width))
-        self.player.y = max(0, min(self.player.y, self.screen_height - self.player.height))
+        world_w = self.grid_width * self.tile_size
+        world_h = self.grid_height * self.tile_size
+        self.player.x = max(0, min(self.player.x, world_w - self.player.width))
+        self.player.y = max(0, min(self.player.y, world_h - self.player.height))
+
+        # update camera to follow player
+        self.camera_y = int(self.player.centery - self.screen_height // 2)
+        self.camera_y = max(0, min(self.camera_y, world_h - self.screen_height))
 
         # block placement and destruction
         px = self.player.centerx // self.tile_size
@@ -118,13 +129,19 @@ class TerrariaEnv(gym.Env):
         target_y = py + dy
 
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
-            if place and self.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == 0:
-                self.grid[target_y, target_x] = 1
+            if place and self.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == world.EMPTY:
+                self.grid[target_y, target_x] = world.DIRT
                 self.inventory["dirt"] -= 1
                 self._update_blocks()
-            if destroy and self.grid[target_y, target_x] == 1:
-                self.grid[target_y, target_x] = 0
-                self.inventory["dirt"] += 1
+            if destroy and self.grid[target_y, target_x] != world.EMPTY:
+                block = self.grid[target_y, target_x]
+                self.grid[target_y, target_x] = world.EMPTY
+                if block == world.DIRT:
+                    self.inventory["dirt"] += 1
+                elif block == world.STONE:
+                    self.inventory["stone"] += 1
+                elif block == world.ORE:
+                    self.inventory["ore"] += 1
                 self._update_blocks()
 
         done = False
@@ -143,7 +160,8 @@ class TerrariaEnv(gym.Env):
         if below_y >= self.grid_height:
             return True
         return (
-            self.grid[below_y, left_x] == 1 or self.grid[below_y, right_x] == 1
+            self.grid[below_y, left_x] != world.EMPTY
+            or self.grid[below_y, right_x] != world.EMPTY
         ) and self.velocity[1] >= 0
 
     def render(self):
@@ -156,14 +174,22 @@ class TerrariaEnv(gym.Env):
                 self.close()
                 return
         self.screen.fill((135, 206, 235))  # sky blue
-        for rect in self.blocks:
-            pygame.draw.rect(self.screen, (139, 69, 19), rect)
-        pygame.draw.rect(self.screen, (255, 0, 0), self.player)
+        for rect, block in self.blocks:
+            screen_rect = rect.move(0, -self.camera_y)
+            if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
+                continue
+            color = world.COLOR_MAP.get(block, (255, 255, 255))
+            pygame.draw.rect(self.screen, color, screen_rect)
+        pygame.draw.rect(self.screen, (255, 0, 0), self.player.move(0, -self.camera_y))
 
         # draw facing indicator
         fx = self.player.centerx + self.facing[0] * self.tile_size // 2
-        fy = self.player.centery + self.facing[1] * self.tile_size // 2d
-        pygame.draw.rect(self.screen, (255, 255, 0), pygame.Rect(fx - 4, fy - 4, 8, 8))
+        fy = self.player.centery + self.facing[1] * self.tile_size // 2
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 0),
+            pygame.Rect(fx - 4, fy - self.camera_y - 4, 8, 8),
+        )
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -175,14 +201,4 @@ class TerrariaEnv(gym.Env):
 
     def _update_blocks(self):
         """Recreate block rectangles from the grid for collision and rendering."""
-        self.blocks = []
-        for y in range(self.grid_height):
-            for x in range(self.grid_width):
-                if self.grid[y, x] == 1:
-                    rect = pygame.Rect(
-                        x * self.tile_size,
-                        y * self.tile_size,
-                        self.tile_size,
-                        self.tile_size,
-                    )
-                    self.blocks.append(rect)
+        self.blocks = world.blocks_from_grid(self.grid, self.tile_size)
