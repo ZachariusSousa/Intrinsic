@@ -35,7 +35,8 @@ for _ in range(1000):
 env.close()
 ```
 
-The agent moves left, right, jumps, or stays idle with discrete actions. Reaching the far right side of the screen ends the episode with a reward of `1.0`.
+The agent moves left, right, jumps, or stays idle with discrete actions. The world now generates endlessly to the left and right, with the camera following the player.
+Blocks you mine are added to a simple inventory displayed at the top left of the screen.
 
 ## Quick Start
 
