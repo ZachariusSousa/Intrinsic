@@ -24,6 +24,7 @@ class Player:
             "iron": 0,
             "gold": 0,
             "wood": 0,
+            "food": 0,
         }
 
     def reset(self, screen_height: int) -> None:

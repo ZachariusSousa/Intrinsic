@@ -13,6 +13,7 @@ register(
 
 from .terraria_env import TerrariaEnv
 from .player import Player
-from .entities import Enemy, Projectile
+from .enemy_mobs import Enemy, Projectile
+from .passive_mobs import PassiveMob
 
-__all__ = ["TerrariaEnv", "Player", "Enemy", "Projectile"]
+__all__ = ["TerrariaEnv", "Player", "Enemy", "Projectile", "PassiveMob"]
