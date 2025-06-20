@@ -4,6 +4,8 @@ import gym
 from gym import spaces
 
 from . import world
+from .player import Player
+from .entities import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 
 
 class TerrariaEnv(gym.Env):
@@ -30,8 +32,7 @@ class TerrariaEnv(gym.Env):
         self.speed = 5
         self.jump_velocity = -15
 
-        self.player = pygame.Rect(50, self.screen_height - self.tile_size * 2, int(self.tile_size * 0.875), int(self.tile_size * 0.875))
-        self.velocity = [0.0, 0.0]
+        self.player = Player(self.screen_height, self.tile_size)
         self.facing = [1, 0]  # initially facing right
 
         # World dimensions may extend beyond the screen
@@ -45,15 +46,7 @@ class TerrariaEnv(gym.Env):
         self.camera_x = 0
         self.camera_y = 0
 
-        # Simple inventory for mined blocks
-        self.inventory = {
-            "dirt": 10,
-            "stone": 0,
-            "copper": 0,
-            "iron": 0,
-            "gold": 0,
-            "wood": 0,
-        }
+
 
         # Font for UI rendering
         self.font = None
@@ -61,49 +54,20 @@ class TerrariaEnv(gym.Env):
         self.screen = None
         self.clock = None
 
-        # Player health
-        self.max_health = 100
-        self.player_health = self.max_health
-
         # Enemies and projectiles lists
         self.enemies = []
         self.projectiles = []
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
-        self.player.x = 50
-        self.player.y = self.screen_height - self.tile_size * 2
-        self.velocity = [0.0, 0.0]
-        self.inventory = {
-            "dirt": 10,
-            "stone": 0,
-            "copper": 0,
-            "iron": 0,
-            "gold": 0,
-            "wood": 0,
-        }
+        self.player.reset(self.screen_height)
         self.facing = [1, 0]
-        self.player_health = self.max_health
-        self.enemies = []
+        self.enemies = spawn_random_enemies(2, self)
         self.projectiles = []
-
-        for _ in range(2):
-            etype = np.random.choice(["melee", "ranged"])
-            ex = np.random.randint(0, self.grid_width)
-            ey = self._find_spawn_y(ex)
-            rect = pygame.Rect(ex * self.tile_size, ey, self.tile_size, self.tile_size)
-            enemy = {
-                "rect": rect,
-                "type": etype,
-                "health": 30 if etype == "melee" else 20,
-                "color": (200, 0, 0) if etype == "melee" else (0, 0, 200),
-                "cooldown": 0,
-            }
-            self.enemies.append(enemy)
         return self._get_obs(), {}
 
     def _get_obs(self):
-        return np.array([self.player.x, self.player.y, self.velocity[0], self.velocity[1]], dtype=np.float32)
+        return np.array([self.player.rect.x, self.player.rect.y, self.player.velocity[0], self.player.velocity[1]], dtype=np.float32)
 
     def step(self, action):
         left, right, jump, place, destroy = action
@@ -112,11 +76,11 @@ class TerrariaEnv(gym.Env):
 
         # update movement
         if left and not right:
-            self.velocity[0] = -self.speed
+            self.player.velocity[0] = -self.speed
         elif right and not left:
-            self.velocity[0] = self.speed
+            self.player.velocity[0] = self.speed
         else:
-            self.velocity[0] = 0
+            self.player.velocity[0] = 0
 
         # update facing based on keys (arrow keys or WASD)
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -130,67 +94,67 @@ class TerrariaEnv(gym.Env):
 
         # jump
         if jump and self._on_ground():
-            self.velocity[1] = self.jump_velocity
+            self.player.velocity[1] = self.jump_velocity
 
         # apply gravity
-        self.velocity[1] += self.gravity
+        self.player.velocity[1] += self.gravity
 
         # update position and handle collisions with blocks
-        self.player.x += int(self.velocity[0])
+        self.player.rect.x += int(self.player.velocity[0])
         for rect, _ in self.blocks:
-            if self.player.colliderect(rect):
-                if self.velocity[0] > 0:
-                    self.player.right = rect.left
-                elif self.velocity[0] < 0:
-                    self.player.left = rect.right
-                self.velocity[0] = 0
+            if self.player.rect.colliderect(rect):
+                if self.player.velocity[0] > 0:
+                    self.player.rect.right = rect.left
+                elif self.player.velocity[0] < 0:
+                    self.player.rect.left = rect.right
+                self.player.velocity[0] = 0
 
-        self.player.y += int(self.velocity[1])
+        self.player.rect.y += int(self.player.velocity[1])
         for rect, _ in self.blocks:
-            if self.player.colliderect(rect):
-                if self.velocity[1] > 0:
-                    self.player.bottom = rect.top
-                elif self.velocity[1] < 0:
-                    self.player.top = rect.bottom
-                self.velocity[1] = 0
+            if self.player.rect.colliderect(rect):
+                if self.player.velocity[1] > 0:
+                    self.player.rect.bottom = rect.top
+                elif self.player.velocity[1] < 0:
+                    self.player.rect.top = rect.bottom
+                self.player.velocity[1] = 0
 
         # world boundaries
         world_w = self.grid_width * self.tile_size
         world_h = self.grid_height * self.tile_size
-        self.player.x = max(0, min(self.player.x, world_w - self.player.width))
-        self.player.y = max(0, min(self.player.y, world_h - self.player.height))
+        self.player.rect.x = max(0, min(self.player.rect.x, world_w - self.player.rect.width))
+        self.player.rect.y = max(0, min(self.player.rect.y, world_h - self.player.rect.height))
 
         # update camera to follow player
-        self.camera_y = int(self.player.centery - self.screen_height // 2)
+        self.camera_y = int(self.player.rect.centery - self.screen_height // 2)
         self.camera_y = max(0, min(self.camera_y, world_h - self.screen_height))
 
         # block placement and destruction
-        px = self.player.centerx // self.tile_size
-        py = self.player.centery // self.tile_size
+        px = self.player.rect.centerx // self.tile_size
+        py = self.player.rect.centery // self.tile_size
         dx, dy = self.facing
         target_x = px + dx
         target_y = py + dy
 
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
-            if place and self.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == world.EMPTY:
+            if place and self.player.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == world.EMPTY:
                 self.grid[target_y, target_x] = world.DIRT
-                self.inventory["dirt"] -= 1
+                self.player.inventory["dirt"] -= 1
                 self._update_blocks()
             if destroy and self.grid[target_y, target_x] != world.EMPTY:
                 block = self.grid[target_y, target_x]
                 self.grid[target_y, target_x] = world.EMPTY
                 if block == world.DIRT:
-                    self.inventory["dirt"] += 1
+                    self.player.inventory["dirt"] += 1
                 elif block == world.STONE:
-                    self.inventory["stone"] += 1
+                    self.player.inventory["stone"] += 1
                 elif block == world.COPPER_ORE:
-                    self.inventory["copper"] += 1
+                    self.player.inventory["copper"] += 1
                 elif block == world.IRON_ORE:
-                    self.inventory["iron"] += 1
+                    self.player.inventory["iron"] += 1
                 elif block == world.GOLD_ORE:
-                    self.inventory["gold"] += 1
+                    self.player.inventory["gold"] += 1
                 elif block == world.WOOD:
-                    self.inventory["wood"] += 1
+                    self.player.inventory["wood"] += 1
                 self._update_blocks()
             elif destroy:
                 # attempt to attack enemy in front of player
@@ -201,66 +165,29 @@ class TerrariaEnv(gym.Env):
                     self.tile_size,
                 )
                 for enemy in list(self.enemies):
-                    if enemy["rect"].colliderect(attack_rect):
-                        enemy["health"] -= 10
-                        if enemy["health"] <= 0:
+                    if enemy.rect.colliderect(attack_rect):
+                        enemy.health -= 10
+                        if enemy.health <= 0:
                             self.enemies.remove(enemy)
 
         # extend world horizontally when approaching edges
         threshold = self.tile_size * 5
-        if self.player.right > self.grid_width * self.tile_size - threshold:
+        if self.player.rect.right > self.grid_width * self.tile_size - threshold:
             self._extend_world_right(self.grid_width // 2)
-        if self.player.left < threshold:
+        if self.player.rect.left < threshold:
             self._extend_world_left(self.grid_width // 2)
 
         # update camera to follow player horizontally
         world_w = self.grid_width * self.tile_size
         world_h = self.grid_height * self.tile_size
-        self.camera_x = int(self.player.centerx - self.screen_width // 2)
+        self.camera_x = int(self.player.rect.centerx - self.screen_width // 2)
         self.camera_x = max(0, min(self.camera_x, world_w - self.screen_width))
-
-        # update enemies
-        for enemy in list(self.enemies):
-            if enemy["type"] == "melee":
-                speed = 2
-                # Move towards player, but stop if would collide
-                if enemy["rect"].centerx < self.player.centerx:
-                    enemy["rect"].x += speed
-                    if enemy["rect"].colliderect(self.player):
-                        enemy["rect"].right = self.player.left
-                        self.player_health -= 1
-                elif enemy["rect"].centerx > self.player.centerx:
-                    enemy["rect"].x -= speed
-                    if enemy["rect"].colliderect(self.player):
-                        enemy["rect"].left = self.player.right
-                        self.player_health -= 1
-                else:
-                    # Already aligned horizontally, check for collision
-                    if enemy["rect"].colliderect(self.player):
-                        self.player_health -= 1
-            else:  # ranged
-                if enemy["cooldown"] > 0:
-                    enemy["cooldown"] -= 1
-                if abs(enemy["rect"].centerx - self.player.centerx) < 200 and enemy["cooldown"] == 0:
-                    direction = 1 if self.player.centerx > enemy["rect"].centerx else -1
-                    proj = {
-                        "rect": pygame.Rect(enemy["rect"].centerx, enemy["rect"].centery, 8, 8),
-                        "vel": 5 * direction,
-                    }
-                    self.projectiles.append(proj)
-                    enemy["cooldown"] = 60
-                    
-        for proj in list(self.projectiles):
-            proj["rect"].x += proj["vel"]
-            if proj["rect"].colliderect(self.player):
-                self.player_health -= 5
-                self.projectiles.remove(proj)
-                continue
-            if proj["rect"].right < 0 or proj["rect"].left > world_w:
-                self.projectiles.remove(proj)
+        # update enemies and projectiles
+        update_enemies(self.enemies, self.player, self.projectiles)
+        update_projectiles(self.projectiles, self.player, world_w)
 
         done = False
-        if self.player_health <= 0:
+        if self.player.health <= 0:
             done = True
         reward = 0.0
 
@@ -268,15 +195,15 @@ class TerrariaEnv(gym.Env):
 
     def _on_ground(self):
         """Check if the player stands on any solid block."""
-        below_y = (self.player.bottom) // self.tile_size
-        left_x = self.player.left // self.tile_size
-        right_x = (self.player.right - 1) // self.tile_size
+        below_y = self.player.rect.bottom // self.tile_size
+        left_x = self.player.rect.left // self.tile_size
+        right_x = (self.player.rect.right - 1) // self.tile_size
         if below_y >= self.grid_height:
             return True
         return (
             self.grid[below_y, left_x] != world.EMPTY
             or self.grid[below_y, right_x] != world.EMPTY
-        ) and self.velocity[1] >= 0
+        ) and self.player.velocity[1] >= 0
 
     def render(self):
         if self.screen is None:
@@ -295,21 +222,21 @@ class TerrariaEnv(gym.Env):
                 continue
             color = world.COLOR_MAP.get(block, (255, 255, 255))
             pygame.draw.rect(self.screen, color, screen_rect)
-        pygame.draw.rect(self.screen, (255, 0, 0), self.player.move(-self.camera_x, -self.camera_y))
+        pygame.draw.rect(self.screen, (255, 0, 0), self.player.rect.move(-self.camera_x, -self.camera_y))
 
         # draw enemies
         for enemy in self.enemies:
-            screen_rect = enemy["rect"].move(-self.camera_x, -self.camera_y)
-            pygame.draw.rect(self.screen, enemy["color"], screen_rect)
+            screen_rect = enemy.rect.move(-self.camera_x, -self.camera_y)
+            pygame.draw.rect(self.screen, enemy.color, screen_rect)
 
         # draw projectiles
         for proj in self.projectiles:
-            screen_rect = proj["rect"].move(-self.camera_x, -self.camera_y)
+            screen_rect = proj.rect.move(-self.camera_x, -self.camera_y)
             pygame.draw.rect(self.screen, (0, 0, 0), screen_rect)
 
         # draw facing indicator
-        fx = self.player.centerx + self.facing[0] * self.tile_size // 2
-        fy = self.player.centery + self.facing[1] * self.tile_size // 2
+        fx = self.player.rect.centerx + self.facing[0] * self.tile_size // 2
+        fy = self.player.rect.centery + self.facing[1] * self.tile_size // 2
         pygame.draw.rect(
             self.screen,
             (255, 255, 0),
@@ -318,11 +245,11 @@ class TerrariaEnv(gym.Env):
 
         # draw inventory UI
         if self.font:
-            inv_text = " | ".join(f"{k}: {v}" for k, v in self.inventory.items())
+            inv_text = " | ".join(f"{k}: {v}" for k, v in self.player.inventory.items())
             text_surf = self.font.render(inv_text, True, (0, 0, 0))
             self.screen.blit(text_surf, (10, 10))
             # health bar
-            health_ratio = self.player_health / self.max_health
+            health_ratio = self.player.health / self.player.max_health
             pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 30, 100, 10), 2)
 
@@ -346,13 +273,13 @@ class TerrariaEnv(gym.Env):
         new_grid = world.generate_world(extra_cols, self.grid_height)
         self.grid = np.concatenate([new_grid, self.grid], axis=1)
         self.grid_width += extra_cols
-        self.player.x += extra_cols * self.tile_size
+        self.player.rect.x += extra_cols * self.tile_size
         # Shift all enemies to the right
         for enemy in self.enemies:
-            enemy["rect"].x += extra_cols * self.tile_size
+            enemy.rect.x += extra_cols * self.tile_size
         # Shift all projectiles to the right
         for proj in self.projectiles:
-            proj["rect"].x += extra_cols * self.tile_size
+            proj.rect.x += extra_cols * self.tile_size
         self._update_blocks()
 
     def _update_blocks(self):
