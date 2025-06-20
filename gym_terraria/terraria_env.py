@@ -5,7 +5,8 @@ from gym import spaces
 
 from . import world
 from .player import Player
-from .entities import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
+from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
+from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 
 
 class TerrariaEnv(gym.Env):
@@ -54,8 +55,9 @@ class TerrariaEnv(gym.Env):
         self.screen = None
         self.clock = None
 
-        # Enemies and projectiles lists
+        # Enemies, passive mobs and projectiles lists
         self.enemies = []
+        self.passive_mobs = []
         self.projectiles = []
 
     def reset(self, *, seed=None, options=None):
@@ -63,6 +65,7 @@ class TerrariaEnv(gym.Env):
         self.player.reset(self.screen_height)
         self.facing = [1, 0]
         self.enemies = spawn_random_enemies(2, self)
+        self.passive_mobs = spawn_random_passive_mobs(3, self)
         self.projectiles = []
         return self._get_obs(), {}
 
@@ -169,6 +172,12 @@ class TerrariaEnv(gym.Env):
                         enemy.health -= 10
                         if enemy.health <= 0:
                             self.enemies.remove(enemy)
+                for mob in list(self.passive_mobs):
+                    if mob.rect.colliderect(attack_rect):
+                        mob.health -= 10
+                        if mob.health <= 0:
+                            self.player.inventory["food"] = self.player.inventory.get("food", 0) + mob.food_drop
+                            self.passive_mobs.remove(mob)
 
         # extend world horizontally when approaching edges
         threshold = self.tile_size * 5
@@ -182,7 +191,8 @@ class TerrariaEnv(gym.Env):
         world_h = self.grid_height * self.tile_size
         self.camera_x = int(self.player.rect.centerx - self.screen_width // 2)
         self.camera_x = max(0, min(self.camera_x, world_w - self.screen_width))
-        # update enemies and projectiles
+        # update mobs, enemies and projectiles
+        update_passive_mobs(self.passive_mobs, self)
         update_enemies(self.enemies, self.player, self.projectiles)
         update_projectiles(self.projectiles, self.player, world_w)
 
@@ -228,6 +238,11 @@ class TerrariaEnv(gym.Env):
         for enemy in self.enemies:
             screen_rect = enemy.rect.move(-self.camera_x, -self.camera_y)
             pygame.draw.rect(self.screen, enemy.color, screen_rect)
+
+        # draw passive mobs
+        for mob in self.passive_mobs:
+            screen_rect = mob.rect.move(-self.camera_x, -self.camera_y)
+            pygame.draw.rect(self.screen, mob.color, screen_rect)
 
         # draw projectiles
         for proj in self.projectiles:
@@ -277,6 +292,9 @@ class TerrariaEnv(gym.Env):
         # Shift all enemies to the right
         for enemy in self.enemies:
             enemy.rect.x += extra_cols * self.tile_size
+        # Shift all passive mobs to the right
+        for mob in self.passive_mobs:
+            mob.rect.x += extra_cols * self.tile_size
         # Shift all projectiles to the right
         for proj in self.projectiles:
             proj.rect.x += extra_cols * self.tile_size
