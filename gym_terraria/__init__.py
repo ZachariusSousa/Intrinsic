@@ -12,5 +12,7 @@ register(
 )
 
 from .terraria_env import TerrariaEnv
+from .player import Player
+from .entities import Enemy, Projectile
 
-__all__ = ["TerrariaEnv"]
+__all__ = ["TerrariaEnv", "Player", "Enemy", "Projectile"]
