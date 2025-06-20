@@ -61,6 +61,14 @@ class TerrariaEnv(gym.Env):
         self.screen = None
         self.clock = None
 
+        # Player health
+        self.max_health = 100
+        self.player_health = self.max_health
+
+        # Enemies and projectiles lists
+        self.enemies = []
+        self.projectiles = []
+
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.player.x = 50
@@ -75,6 +83,28 @@ class TerrariaEnv(gym.Env):
             "wood": 0,
         }
         self.facing = [1, 0]
+        self.player_health = self.max_health
+        self.enemies = []
+        self.projectiles = []
+        # spawn a couple of enemies on the surface
+        for _ in range(2):
+            etype = np.random.choice(["melee", "ranged"])
+            tile_x = np.random.randint(0, self.grid_width)
+            spawn_y = self._find_spawn_y(tile_x)
+            rect = pygame.Rect(
+                tile_x * self.tile_size,
+                spawn_y,
+                self.tile_size,
+                self.tile_size,
+            )
+            enemy = {
+                "rect": rect,
+                "type": etype,
+                "health": 30 if etype == "melee" else 20,
+                "color": (200, 0, 0) if etype == "melee" else (0, 0, 200),
+                "cooldown": 0,
+            }
+            self.enemies.append(enemy)
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -167,6 +197,19 @@ class TerrariaEnv(gym.Env):
                 elif block == world.WOOD:
                     self.inventory["wood"] += 1
                 self._update_blocks()
+            elif destroy:
+                # attempt to attack enemy in front of player
+                attack_rect = pygame.Rect(
+                    target_x * self.tile_size,
+                    target_y * self.tile_size,
+                    self.tile_size,
+                    self.tile_size,
+                )
+                for enemy in list(self.enemies):
+                    if enemy["rect"].colliderect(attack_rect):
+                        enemy["health"] -= 10
+                        if enemy["health"] <= 0:
+                            self.enemies.remove(enemy)
 
         # extend world horizontally when approaching edges
         threshold = self.tile_size * 5
@@ -181,7 +224,43 @@ class TerrariaEnv(gym.Env):
         self.camera_x = int(self.player.centerx - self.screen_width // 2)
         self.camera_x = max(0, min(self.camera_x, world_w - self.screen_width))
 
+        # update enemies
+        for enemy in list(self.enemies):
+            if enemy["type"] == "melee":
+                speed = 2
+                if enemy["rect"].centerx < self.player.centerx:
+                    enemy["rect"].x += speed
+                elif enemy["rect"].centerx > self.player.centerx:
+                    enemy["rect"].x -= speed
+                if enemy["rect"].colliderect(self.player):
+                    self.player_health -= 1
+                # keep within world bounds
+                enemy["rect"].x = max(0, min(enemy["rect"].x, world_w - self.tile_size))
+            else:  # ranged
+                if enemy["cooldown"] > 0:
+                    enemy["cooldown"] -= 1
+                if abs(enemy["rect"].centerx - self.player.centerx) < 200 and enemy["cooldown"] == 0:
+                    direction = 1 if self.player.centerx > enemy["rect"].centerx else -1
+                    proj = {
+                        "rect": pygame.Rect(enemy["rect"].centerx, enemy["rect"].centery, 8, 8),
+                        "vel": 5 * direction,
+                    }
+                    self.projectiles.append(proj)
+                    enemy["cooldown"] = 60
+                enemy["rect"].x = max(0, min(enemy["rect"].x, world_w - self.tile_size))
+
+        for proj in list(self.projectiles):
+            proj["rect"].x += proj["vel"]
+            if proj["rect"].colliderect(self.player):
+                self.player_health -= 5
+                self.projectiles.remove(proj)
+                continue
+            if proj["rect"].right < 0 or proj["rect"].left > world_w:
+                self.projectiles.remove(proj)
+
         done = False
+        if self.player_health <= 0:
+            done = True
         reward = 0.0
 
         return self._get_obs(), reward, done, False, {}
@@ -217,6 +296,16 @@ class TerrariaEnv(gym.Env):
             pygame.draw.rect(self.screen, color, screen_rect)
         pygame.draw.rect(self.screen, (255, 0, 0), self.player.move(-self.camera_x, -self.camera_y))
 
+        # draw enemies
+        for enemy in self.enemies:
+            screen_rect = enemy["rect"].move(-self.camera_x, -self.camera_y)
+            pygame.draw.rect(self.screen, enemy["color"], screen_rect)
+
+        # draw projectiles
+        for proj in self.projectiles:
+            screen_rect = proj["rect"].move(-self.camera_x, -self.camera_y)
+            pygame.draw.rect(self.screen, (0, 0, 0), screen_rect)
+
         # draw facing indicator
         fx = self.player.centerx + self.facing[0] * self.tile_size // 2
         fy = self.player.centery + self.facing[1] * self.tile_size // 2
@@ -231,6 +320,10 @@ class TerrariaEnv(gym.Env):
             inv_text = " | ".join(f"{k}: {v}" for k, v in self.inventory.items())
             text_surf = self.font.render(inv_text, True, (0, 0, 0))
             self.screen.blit(text_surf, (10, 10))
+            # health bar
+            health_ratio = self.player_health / self.max_health
+            pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
+            pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 30, 100, 10), 2)
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -258,3 +351,12 @@ class TerrariaEnv(gym.Env):
     def _update_blocks(self):
         """Recreate block rectangles from the grid for collision and rendering."""
         self.blocks = world.blocks_from_grid(self.grid, self.tile_size)
+
+    def _find_spawn_y(self, tile_x: int) -> int:
+        """Return the surface y position (in pixels) for spawning an enemy."""
+        for y in range(self.grid_height):
+            block = self.grid[y, tile_x]
+            if block != world.EMPTY and block not in (world.WOOD, world.LEAVES):
+                return max(0, (y - 1) * self.tile_size)
+        # default to ground level if nothing found
+        return max(0, (self.grid_height - 2) * self.tile_size)
