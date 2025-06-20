@@ -89,9 +89,9 @@ class TerrariaEnv(gym.Env):
 
         for _ in range(2):
             etype = np.random.choice(["melee", "ranged"])
-            ex = np.random.randint(0, self.grid_width * self.tile_size)
-            ey = self.screen_height - self.tile_size * 2
-            rect = pygame.Rect(ex, ey, self.tile_size, self.tile_size)
+            ex = np.random.randint(0, self.grid_width)
+            ey = self._find_spawn_y(ex)
+            rect = pygame.Rect(ex * self.tile_size, ey, self.tile_size, self.tile_size)
             enemy = {
                 "rect": rect,
                 "type": etype,
@@ -223,12 +223,21 @@ class TerrariaEnv(gym.Env):
         for enemy in list(self.enemies):
             if enemy["type"] == "melee":
                 speed = 2
+                # Move towards player, but stop if would collide
                 if enemy["rect"].centerx < self.player.centerx:
                     enemy["rect"].x += speed
+                    if enemy["rect"].colliderect(self.player):
+                        enemy["rect"].right = self.player.left
+                        self.player_health -= 1
                 elif enemy["rect"].centerx > self.player.centerx:
                     enemy["rect"].x -= speed
-                if enemy["rect"].colliderect(self.player):
-                    self.player_health -= 1
+                    if enemy["rect"].colliderect(self.player):
+                        enemy["rect"].left = self.player.right
+                        self.player_health -= 1
+                else:
+                    # Already aligned horizontally, check for collision
+                    if enemy["rect"].colliderect(self.player):
+                        self.player_health -= 1
             else:  # ranged
                 if enemy["cooldown"] > 0:
                     enemy["cooldown"] -= 1
@@ -338,6 +347,12 @@ class TerrariaEnv(gym.Env):
         self.grid = np.concatenate([new_grid, self.grid], axis=1)
         self.grid_width += extra_cols
         self.player.x += extra_cols * self.tile_size
+        # Shift all enemies to the right
+        for enemy in self.enemies:
+            enemy["rect"].x += extra_cols * self.tile_size
+        # Shift all projectiles to the right
+        for proj in self.projectiles:
+            proj["rect"].x += extra_cols * self.tile_size
         self._update_blocks()
 
     def _update_blocks(self):
