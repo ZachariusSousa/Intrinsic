@@ -86,17 +86,12 @@ class TerrariaEnv(gym.Env):
         self.player_health = self.max_health
         self.enemies = []
         self.projectiles = []
-        # spawn a couple of enemies on the surface
+
         for _ in range(2):
             etype = np.random.choice(["melee", "ranged"])
-            tile_x = np.random.randint(0, self.grid_width)
-            spawn_y = self._find_spawn_y(tile_x)
-            rect = pygame.Rect(
-                tile_x * self.tile_size,
-                spawn_y,
-                self.tile_size,
-                self.tile_size,
-            )
+            ex = np.random.randint(0, self.grid_width * self.tile_size)
+            ey = self.screen_height - self.tile_size * 2
+            rect = pygame.Rect(ex, ey, self.tile_size, self.tile_size)
             enemy = {
                 "rect": rect,
                 "type": etype,
@@ -234,8 +229,6 @@ class TerrariaEnv(gym.Env):
                     enemy["rect"].x -= speed
                 if enemy["rect"].colliderect(self.player):
                     self.player_health -= 1
-                # keep within world bounds
-                enemy["rect"].x = max(0, min(enemy["rect"].x, world_w - self.tile_size))
             else:  # ranged
                 if enemy["cooldown"] > 0:
                     enemy["cooldown"] -= 1
@@ -247,8 +240,7 @@ class TerrariaEnv(gym.Env):
                     }
                     self.projectiles.append(proj)
                     enemy["cooldown"] = 60
-                enemy["rect"].x = max(0, min(enemy["rect"].x, world_w - self.tile_size))
-
+                    
         for proj in list(self.projectiles):
             proj["rect"].x += proj["vel"]
             if proj["rect"].colliderect(self.player):
