@@ -30,7 +30,7 @@ class TerrariaEnv(gym.Env):
         self.speed = 5
         self.jump_velocity = -15
 
-        self.player = pygame.Rect(50, self.screen_height - self.tile_size * 2, self.tile_size, self.tile_size)
+        self.player = pygame.Rect(50, self.screen_height - self.tile_size * 2, int(self.tile_size * 0.875), int(self.tile_size * 0.875))
         self.velocity = [0.0, 0.0]
         self.facing = [1, 0]  # initially facing right
 
