@@ -86,7 +86,7 @@ class TerrariaEnv(gym.Env):
         self.player_health = self.max_health
         self.enemies = []
         self.projectiles = []
-        # spawn a couple of enemies
+
         for _ in range(2):
             etype = np.random.choice(["melee", "ranged"])
             ex = np.random.randint(0, self.grid_width * self.tile_size)
@@ -240,7 +240,7 @@ class TerrariaEnv(gym.Env):
                     }
                     self.projectiles.append(proj)
                     enemy["cooldown"] = 60
-
+                    
         for proj in list(self.projectiles):
             proj["rect"].x += proj["vel"]
             if proj["rect"].colliderect(self.player):
@@ -343,3 +343,12 @@ class TerrariaEnv(gym.Env):
     def _update_blocks(self):
         """Recreate block rectangles from the grid for collision and rendering."""
         self.blocks = world.blocks_from_grid(self.grid, self.tile_size)
+
+    def _find_spawn_y(self, tile_x: int) -> int:
+        """Return the surface y position (in pixels) for spawning an enemy."""
+        for y in range(self.grid_height):
+            block = self.grid[y, tile_x]
+            if block != world.EMPTY and block not in (world.WOOD, world.LEAVES):
+                return max(0, (y - 1) * self.tile_size)
+        # default to ground level if nothing found
+        return max(0, (self.grid_height - 2) * self.tile_size)
