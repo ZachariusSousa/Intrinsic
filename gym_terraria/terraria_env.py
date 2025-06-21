@@ -61,12 +61,19 @@ class TerrariaEnv(gym.Env):
         self.passive_mobs = []
         self.projectiles = []
 
+        # spawning configuration
+        self.max_enemies = 5
+        self.max_passive_mobs = 5
+        self.enemy_spawn_chance = 0.01
+        self.passive_spawn_chance = 0.02
+
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.player.reset(self.screen_height)
         self.facing = [1, 0]
-        self.enemies = spawn_random_enemies(2, self)
-        self.passive_mobs = spawn_random_passive_mobs(3, self)
+        # Start with an empty world and spawn mobs dynamically during gameplay
+        self.enemies = []
+        self.passive_mobs = []
         self.projectiles = []
         return self._get_obs(), {}
 
@@ -212,6 +219,8 @@ class TerrariaEnv(gym.Env):
         world_h = self.grid_height * self.tile_size
         self.camera_x = int(self.player.rect.centerx - self.screen_width // 2)
         self.camera_x = max(0, min(self.camera_x, world_w - self.screen_width))
+        # occasionally spawn new mobs
+        self._spawn_mobs_randomly()
         # update mobs, enemies and projectiles
         update_passive_mobs(self.passive_mobs, self)
         update_enemies(self.enemies, self.player, self.projectiles)
@@ -346,3 +355,16 @@ class TerrariaEnv(gym.Env):
                 return max(0, (y - 1) * self.tile_size)
         # default to ground level if nothing found
         return max(0, (self.grid_height - 2) * self.tile_size)
+
+    def _spawn_mobs_randomly(self) -> None:
+        """Occasionally add new mobs to the world."""
+        if (
+            len(self.enemies) < self.max_enemies
+            and np.random.random() < self.enemy_spawn_chance
+        ):
+            self.enemies.extend(spawn_random_enemies(1, self))
+        if (
+            len(self.passive_mobs) < self.max_passive_mobs
+            and np.random.random() < self.passive_spawn_chance
+        ):
+            self.passive_mobs.extend(spawn_random_passive_mobs(1, self))
