@@ -69,12 +69,24 @@ def generate_world(
                     if 0 <= nx < width and 0 <= ny < height and grid[ny, nx] == EMPTY:
                         grid[ny, nx] = LEAVES
 
-    # generate simple water pools on the surface
-    for x in range(width):
+    # generate water pools (ponds/lakes) that dig into the dirt
+    x = 0
+    while x < width:
         if np.random.random() < water_chance and grid[surface_y, x] == EMPTY:
-            grid[surface_y, x] = WATER
-            if surface_y + 1 < height and grid[surface_y + 1, x] == EMPTY:
-                grid[surface_y + 1, x] = WATER
+            pool_width = np.random.randint(2, 7)   # random width of pond
+            pool_depth = np.random.randint(1, 4)   # random depth of pond
+            for dx in range(pool_width):
+                wx = x + dx
+                if wx >= width:
+                    break
+                # Find the first dirt block below the surface at this column
+                for dy in range(pool_depth):
+                    wy = surface_y + dy
+                    if wy < height and grid[wy, wx] == DIRT:
+                        grid[wy, wx] = WATER
+            x += pool_width  # skip over the pool we just made
+        else:
+            x += 1
 
     return grid
 
