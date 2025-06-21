@@ -42,6 +42,7 @@ class TerrariaEnv(gym.Env):
 
         self.grid = world.generate_world(self.grid_width, self.grid_height)
         self._update_blocks()
+        self.in_water = False
 
         # Camera offset for rendering larger worlds
         self.camera_x = 0
@@ -77,6 +78,13 @@ class TerrariaEnv(gym.Env):
 
         keys = pygame.key.get_pressed()
 
+        self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
+
+        if (left or right or jump) and self.player.food > 0:
+            self.player.food = max(0, self.player.food - 0.1)
+        if self.player.food <= 0:
+            self.player.health -= 0.1
+
         # update movement
         if left and not right:
             self.player.velocity[0] = -self.speed
@@ -95,12 +103,13 @@ class TerrariaEnv(gym.Env):
         elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
             self.facing = [0, 1]
 
-        # jump
-        if jump and self._on_ground():
-            self.player.velocity[1] = self.jump_velocity
+        # jump (allow swimming upwards)
+        if jump and (self._on_ground() or self.in_water):
+            self.player.velocity[1] = self.jump_velocity if not self.in_water else -5
 
-        # apply gravity
-        self.player.velocity[1] += self.gravity
+        # apply gravity (reduced in water)
+        gravity = 0.2 if self.in_water else self.gravity
+        self.player.velocity[1] += gravity
 
         # update position and handle collisions with blocks
         self.player.rect.x += int(self.player.velocity[0])
@@ -126,6 +135,15 @@ class TerrariaEnv(gym.Env):
         world_h = self.grid_height * self.tile_size
         self.player.rect.x = max(0, min(self.player.rect.x, world_w - self.player.rect.width))
         self.player.rect.y = max(0, min(self.player.rect.y, world_h - self.player.rect.height))
+
+        # update water status after movement
+        self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
+        if self.in_water:
+            self.player.oxygen = max(0, self.player.oxygen - 1)
+            if self.player.oxygen == 0:
+                self.player.health -= 0.5
+        else:
+            self.player.oxygen = min(self.player.max_oxygen, self.player.oxygen + 2)
 
         # update camera to follow player
         self.camera_y = int(self.player.rect.centery - self.screen_height // 2)
@@ -210,9 +228,11 @@ class TerrariaEnv(gym.Env):
         right_x = (self.player.rect.right - 1) // self.tile_size
         if below_y >= self.grid_height:
             return True
+        def solid(val):
+            return val not in (world.EMPTY, world.WATER)
         return (
-            self.grid[below_y, left_x] != world.EMPTY
-            or self.grid[below_y, right_x] != world.EMPTY
+            solid(self.grid[below_y, left_x])
+            or solid(self.grid[below_y, right_x])
         ) and self.player.velocity[1] >= 0
 
     def render(self):
@@ -232,6 +252,11 @@ class TerrariaEnv(gym.Env):
                 continue
             color = world.COLOR_MAP.get(block, (255, 255, 255))
             pygame.draw.rect(self.screen, color, screen_rect)
+        for rect in self.water_blocks:
+            screen_rect = rect.move(-self.camera_x, -self.camera_y)
+            if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
+                continue
+            pygame.draw.rect(self.screen, world.COLOR_MAP[world.WATER], screen_rect)
         pygame.draw.rect(self.screen, (255, 0, 0), self.player.rect.move(-self.camera_x, -self.camera_y))
 
         # draw enemies
@@ -267,6 +292,12 @@ class TerrariaEnv(gym.Env):
             health_ratio = self.player.health / self.player.max_health
             pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 30, 100, 10), 2)
+            food_ratio = self.player.food / self.player.max_food
+            pygame.draw.rect(self.screen, (0, 128, 0), pygame.Rect(10, 45, 100 * food_ratio, 10))
+            pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 45, 100, 10), 2)
+            oxygen_ratio = self.player.oxygen / self.player.max_oxygen
+            pygame.draw.rect(self.screen, (0, 0, 255), pygame.Rect(10, 60, 100 * oxygen_ratio, 10))
+            pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 60, 100, 10), 2)
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -302,7 +333,7 @@ class TerrariaEnv(gym.Env):
 
     def _update_blocks(self):
         """Recreate block rectangles from the grid for collision and rendering."""
-        self.blocks = world.blocks_from_grid(self.grid, self.tile_size)
+        self.blocks, self.water_blocks = world.blocks_from_grid(self.grid, self.tile_size)
 
     def _find_spawn_y(self, tile_x: int) -> int:
         """Return the surface y position (in pixels) for spawning an enemy."""

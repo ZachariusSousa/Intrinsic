@@ -17,6 +17,10 @@ class Player:
         self.facing = [1, 0]
         self.max_health = 100
         self.health = self.max_health
+        self.max_food = 100
+        self.food = self.max_food
+        self.max_oxygen = 100
+        self.oxygen = self.max_oxygen
         self.inventory: Dict[str, int] = {
             "dirt": 10,
             "stone": 0,
@@ -34,6 +38,8 @@ class Player:
         self.velocity = [0.0, 0.0]
         self.facing = [1, 0]
         self.health = self.max_health
+        self.food = self.max_food
+        self.oxygen = self.max_oxygen
         for key in self.inventory:
             self.inventory[key] = 10 if key == "dirt" else 0
 
