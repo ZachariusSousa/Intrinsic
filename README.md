@@ -37,6 +37,7 @@ env.close()
 
 The agent moves left, right, jumps, or stays idle with discrete actions. The world now generates endlessly to the left and right, with the camera following the player.
 Trees can appear on the surface and multiple ore types are buried in the stone layers. Blocks you mine are added to a simple inventory displayed at the top left of the screen.
+Enemies and passive creatures now spawn randomly over time rather than only at the start of the game.
 
 ## Quick Start
 
