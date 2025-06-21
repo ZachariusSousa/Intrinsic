@@ -78,6 +78,9 @@ class TerrariaEnv(gym.Env):
 
         keys = pygame.key.get_pressed()
 
+        if keys[pygame.K_e]:
+            self.player.eat_food()
+
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
         if (left or right or jump) and self.player.food > 0:

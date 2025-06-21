@@ -31,6 +31,12 @@ class Player:
             "food": 0,
         }
 
+    def eat_food(self) -> None:
+        """Consume one food item to refill the food bar."""
+        if self.inventory.get("food", 0) > 0 and self.food < self.max_food:
+            self.inventory["food"] -= 1
+            self.food = self.max_food
+
     def reset(self, screen_height: int) -> None:
         """Reset player position and state."""
         self.rect.x = 50
