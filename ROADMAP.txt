@@ -1,0 +1,43 @@
+# Roadmap for Extending the Terraria Gym Environment
+
+This document lists potential extensions to make the environment richer and more suitable for neurosymbolic AI experiments. The goal is to expose the agent to complex dynamics so it can discover rules and strategies for long-term survival.
+
+## 1. World Generation
+- Multiple biomes (forest, desert, snow, underground cave)
+- Procedural structures such as caves, ruins and dungeons
+- Dynamic fluids (flowing water and lava)
+- Day/night cycle and seasonal weather effects
+
+## 2. Entities and Interactions
+- More enemy types with varied behaviors (flying, ranged, group tactics)
+- Passive creatures with unique drops and behaviors
+- Non-player characters (NPCs) for trading or quests
+- Allies or companions that can assist the player
+
+## 3. Crafting and Building
+- Craftable tools and weapons using collected resources
+- Crafting stations and recipes
+- Building mechanics for houses or shelters
+- Equipment with stats (armor, accessories)
+
+## 4. Survival Mechanics
+- Extended needs: thirst, temperature, status effects (poison, burning)
+- Farming and hunting systems for renewable food sources
+- Resource decay or spoilage to encourage planning
+
+## 5. Observation and Reasoning Aids
+- Structured observations including nearby block types and entities
+- Event logs so agents can derive symbolic rules (e.g. cause and effect)
+- Optional partial observability or noisy sensors
+- API hooks for exporting state as graphs for external reasoning modules
+
+## 6. Tasks and Progression
+- Quests or achievements that require exploration and crafting
+- Boss encounters or special events triggered by certain conditions
+- Multi-agent scenarios such as cooperation or competition
+
+## 7. Testing and Baselines
+- Provide baseline reinforcement learning agents
+- Example neurosymbolic pipelines demonstrating rule discovery
+
+These ideas can be implemented incrementally. Each addition should come with new tests and examples to verify behavior and to provide a clear target for AI agents to learn from. Suggestions can evolve based on experimental results.
