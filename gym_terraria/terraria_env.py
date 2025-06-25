@@ -67,8 +67,8 @@ class TerrariaEnv(gym.Env):
         # spawning configuration
         self.max_enemies = 5
         self.max_passive_mobs = 5
-        self.enemy_spawn_chance = 0.01
-        self.passive_spawn_chance = 0.02
+        self.enemy_spawn_chance = 0.001
+        self.passive_spawn_chance = 0.005
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -98,7 +98,7 @@ class TerrariaEnv(gym.Env):
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
         if (left or right or jump) and self.player.food > 0:
-            self.player.food = max(0, self.player.food - 0.1)
+            self.player.food = max(0, self.player.food - 0.05)
         if self.player.food <= 0:
             self.player.health -= 0.1
 
