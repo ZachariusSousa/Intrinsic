@@ -7,6 +7,7 @@ from . import world
 from .player import Player
 from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
+from .weather import WeatherSystem
 
 
 class TerrariaEnv(gym.Env):
@@ -55,6 +56,8 @@ class TerrariaEnv(gym.Env):
 
         self.screen = None
         self.clock = None
+        # Weather and time system
+        self.weather = WeatherSystem()
 
         # Enemies, passive mobs and projectiles lists
         self.enemies = []
@@ -71,6 +74,7 @@ class TerrariaEnv(gym.Env):
         super().reset(seed=seed)
         self.player.reset(self.screen_height)
         self.facing = [1, 0]
+        self.weather = WeatherSystem()
         # Start with an empty world and spawn mobs dynamically during gameplay
         self.enemies = []
         self.passive_mobs = []
@@ -81,6 +85,9 @@ class TerrariaEnv(gym.Env):
         return np.array([self.player.rect.x, self.player.rect.y, self.player.velocity[0], self.player.velocity[1]], dtype=np.float32)
 
     def step(self, action):
+        # advance the day/night and season cycle
+        self.weather.step()
+
         left, right, jump, place, destroy = action
 
         keys = pygame.key.get_pressed()
@@ -257,41 +264,49 @@ class TerrariaEnv(gym.Env):
             if event.type == pygame.QUIT:
                 self.close()
                 return
-        self.screen.fill((135, 206, 235))  # sky blue
+        # sky color depends on day/night cycle and season
+        self.screen.fill(self.weather.get_sky_color())
+        light = self.weather.get_light_intensity()
         for rect, block in self.blocks:
             screen_rect = rect.move(-self.camera_x, -self.camera_y)
             if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
                 continue
             color = world.COLOR_MAP.get(block, (255, 255, 255))
+            color = tuple(int(c * light) for c in color)
             pygame.draw.rect(self.screen, color, screen_rect)
         for rect in self.water_blocks:
             screen_rect = rect.move(-self.camera_x, -self.camera_y)
             if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
                 continue
-            pygame.draw.rect(self.screen, world.COLOR_MAP[world.WATER], screen_rect)
-        pygame.draw.rect(self.screen, (255, 0, 0), self.player.rect.move(-self.camera_x, -self.camera_y))
+            water_color = tuple(int(c * light) for c in world.COLOR_MAP[world.WATER])
+            pygame.draw.rect(self.screen, water_color, screen_rect)
+        player_color = tuple(int(c * light) for c in (255, 0, 0))
+        pygame.draw.rect(self.screen, player_color, self.player.rect.move(-self.camera_x, -self.camera_y))
 
         # draw enemies
         for enemy in self.enemies:
             screen_rect = enemy.rect.move(-self.camera_x, -self.camera_y)
-            pygame.draw.rect(self.screen, enemy.color, screen_rect)
+            color = tuple(int(c * light) for c in enemy.color)
+            pygame.draw.rect(self.screen, color, screen_rect)
 
         # draw passive mobs
         for mob in self.passive_mobs:
             screen_rect = mob.rect.move(-self.camera_x, -self.camera_y)
-            pygame.draw.rect(self.screen, mob.color, screen_rect)
+            color = tuple(int(c * light) for c in mob.color)
+            pygame.draw.rect(self.screen, color, screen_rect)
 
         # draw projectiles
         for proj in self.projectiles:
             screen_rect = proj.rect.move(-self.camera_x, -self.camera_y)
-            pygame.draw.rect(self.screen, (0, 0, 0), screen_rect)
+            proj_color = tuple(int(c * light) for c in (0, 0, 0))
+            pygame.draw.rect(self.screen, proj_color, screen_rect)
 
         # draw facing indicator
         fx = self.player.rect.centerx + self.facing[0] * self.tile_size // 2
         fy = self.player.rect.centery + self.facing[1] * self.tile_size // 2
         pygame.draw.rect(
             self.screen,
-            (255, 255, 0),
+            tuple(int(c * light) for c in (255, 255, 0)),
             pygame.Rect(fx - 4 - self.camera_x, fy - self.camera_y - 4, 8, 8),
         )
 
