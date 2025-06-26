@@ -4,6 +4,7 @@ import gym
 from gym import spaces
 
 from . import world
+from . import blocks
 from .player import Player
 from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
@@ -64,6 +65,10 @@ class TerrariaEnv(gym.Env):
         self.passive_mobs = []
         self.projectiles = []
 
+        # mining state
+        self._mining_target = None  # (x, y) of block being mined
+        self._mining_progress = 0
+
         # spawning configuration
         self.max_enemies = 5
         self.max_passive_mobs = 5
@@ -79,6 +84,8 @@ class TerrariaEnv(gym.Env):
         self.enemies = []
         self.passive_mobs = []
         self.projectiles = []
+        self._mining_target = None
+        self._mining_progress = 0
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -178,41 +185,58 @@ class TerrariaEnv(gym.Env):
                 self.grid[target_y, target_x] = world.DIRT
                 self.player.inventory["dirt"] -= 1
                 self._update_blocks()
-            if destroy and self.grid[target_y, target_x] != world.EMPTY:
+
+            if destroy:
                 block = self.grid[target_y, target_x]
-                self.grid[target_y, target_x] = world.EMPTY
-                if block == world.DIRT:
-                    self.player.inventory["dirt"] += 1
-                elif block == world.STONE:
-                    self.player.inventory["stone"] += 1
-                elif block == world.COPPER_ORE:
-                    self.player.inventory["copper"] += 1
-                elif block == world.IRON_ORE:
-                    self.player.inventory["iron"] += 1
-                elif block == world.GOLD_ORE:
-                    self.player.inventory["gold"] += 1
-                elif block == world.WOOD:
-                    self.player.inventory["wood"] += 1
-                self._update_blocks()
-            elif destroy:
-                # attempt to attack enemy in front of player
-                attack_rect = pygame.Rect(
-                    target_x * self.tile_size,
-                    target_y * self.tile_size,
-                    self.tile_size,
-                    self.tile_size,
-                )
-                for enemy in list(self.enemies):
-                    if enemy.rect.colliderect(attack_rect):
-                        enemy.health -= 10
-                        if enemy.health <= 0:
-                            self.enemies.remove(enemy)
-                for mob in list(self.passive_mobs):
-                    if mob.rect.colliderect(attack_rect):
-                        mob.health -= 10
-                        if mob.health <= 0:
-                            self.player.inventory["food"] = self.player.inventory.get("food", 0) + mob.food_drop
-                            self.passive_mobs.remove(mob)
+                target = (target_x, target_y)
+                if block != world.EMPTY:
+                    if target != self._mining_target:
+                        self._mining_target = target
+                        self._mining_progress = 0
+                    info = blocks.BLOCK_STATS.get(block)
+                    required = info.mining_time if info else 1
+                    self._mining_progress += 1
+                    if self._mining_progress >= required:
+                        self.grid[target_y, target_x] = world.EMPTY
+                        if block == world.DIRT:
+                            self.player.inventory["dirt"] += 1
+                        elif block == world.STONE:
+                            self.player.inventory["stone"] += 1
+                        elif block == world.COPPER_ORE:
+                            self.player.inventory["copper"] += 1
+                        elif block == world.IRON_ORE:
+                            self.player.inventory["iron"] += 1
+                        elif block == world.GOLD_ORE:
+                            self.player.inventory["gold"] += 1
+                        elif block == world.WOOD:
+                            self.player.inventory["wood"] += 1
+                        self._update_blocks()
+                        self._mining_target = None
+                        self._mining_progress = 0
+                else:
+                    self._mining_target = None
+                    self._mining_progress = 0
+                    # attempt to attack enemy in front of player
+                    attack_rect = pygame.Rect(
+                        target_x * self.tile_size,
+                        target_y * self.tile_size,
+                        self.tile_size,
+                        self.tile_size,
+                    )
+                    for enemy in list(self.enemies):
+                        if enemy.rect.colliderect(attack_rect):
+                            enemy.health -= 10
+                            if enemy.health <= 0:
+                                self.enemies.remove(enemy)
+                    for mob in list(self.passive_mobs):
+                        if mob.rect.colliderect(attack_rect):
+                            mob.health -= 10
+                            if mob.health <= 0:
+                                self.player.inventory["food"] = self.player.inventory.get("food", 0) + mob.food_drop
+                                self.passive_mobs.remove(mob)
+            else:
+                self._mining_target = None
+                self._mining_progress = 0
 
         # extend world horizontally when approaching edges
         threshold = self.tile_size * 5
