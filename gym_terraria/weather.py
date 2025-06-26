@@ -4,7 +4,7 @@ import math
 class WeatherSystem:
     """Simple day/night cycle and seasonal weather manager."""
 
-    def __init__(self, day_length=1200, season_length=24000):
+    def __init__(self, day_length=12000, season_length=48000):
         # Number of environment steps that make up one day and one season
         self.day_length = day_length
         self.season_length = season_length
