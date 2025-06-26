@@ -11,7 +11,7 @@ from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_
 from .weather import WeatherSystem
 
 
-class TerrariaEnv(gym.Env):
+class IntrinsicEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
 
     metadata = {"render.modes": ["human"]}

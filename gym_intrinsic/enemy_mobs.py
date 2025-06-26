@@ -19,7 +19,7 @@ class Projectile:
 
 
 def spawn_random_enemies(num: int, env) -> List[Enemy]:
-    """Helper used by TerrariaEnv.reset to populate enemies."""
+    """Helper used by IntrinsicEnv.reset to populate enemies."""
     enemies: List[Enemy] = []
     for _ in range(num):
         etype = np.random.choice(["melee", "ranged"])
