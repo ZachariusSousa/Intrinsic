@@ -304,6 +304,22 @@ class TerrariaEnv(gym.Env):
                 continue
             water_color = tuple(int(c * light) for c in world.COLOR_MAP[world.WATER])
             pygame.draw.rect(self.screen, water_color, screen_rect)
+
+        # draw mining progress indicator
+        if self._mining_target is not None and self._mining_progress > 0:
+            tx, ty = self._mining_target
+            block = self.grid[ty, tx]
+            info = blocks.BLOCK_STATS.get(block)
+            required = info.mining_time if info else 1
+            ratio = min(1.0, self._mining_progress / required)
+            size = int(self.tile_size * ratio)
+            if size > 0:
+                offset = (self.tile_size - size) // 2
+                sx = tx * self.tile_size - self.camera_x + offset
+                sy = ty * self.tile_size - self.camera_y + offset
+                overlay = pygame.Surface((size, size), pygame.SRCALPHA)
+                overlay.fill((255, 255, 255, 120))
+                self.screen.blit(overlay, (sx, sy))
         player_color = tuple(int(c * light) for c in (255, 0, 0))
         pygame.draw.rect(self.screen, player_color, self.player.rect.move(-self.camera_x, -self.camera_y))
 
