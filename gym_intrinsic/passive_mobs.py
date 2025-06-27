@@ -2,6 +2,7 @@ import pygame
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Dict
+from . import env_utils
 
 @dataclass
 class PassiveMob:
@@ -24,7 +25,7 @@ def spawn_random_passive_mobs(num: int, env) -> List[PassiveMob]:
     for _ in range(num):
         mtype = np.random.choice(types)
         ex = np.random.randint(0, env.grid_width)
-        ey = env._find_spawn_y(ex)
+        ey = env_utils.find_spawn_y(env, ex)
         info = PASSIVE_TYPES[mtype]
         rect = pygame.Rect(ex * env.tile_size, ey, env.tile_size, env.tile_size)
         mobs.append(
@@ -48,5 +49,5 @@ def update_passive_mobs(mobs: List[PassiveMob], env) -> None:
         mob.rect.x += mob.direction
         mob.rect.x = max(0, min(mob.rect.x, world_w - env.tile_size))
         tile_x = mob.rect.centerx // env.tile_size
-        ground_y = env._find_spawn_y(tile_x)
+        ground_y = env_utils.find_spawn_y(env, tile_x)
         mob.rect.bottom = ground_y + env.tile_size
