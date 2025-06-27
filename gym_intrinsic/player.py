@@ -30,6 +30,20 @@ class Player:
             "wood": 0,
             "food": 0,
         }
+        # basic 10 slot hotbar with the first slot containing dirt by default
+        self.hotbar = [
+            "dirt",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ]
+        self.selected_slot = 0
 
     def eat_food(self) -> None:
         """Consume one food item to refill the food bar."""
@@ -48,6 +62,19 @@ class Player:
         self.oxygen = self.max_oxygen
         for key in self.inventory:
             self.inventory[key] = 10 if key == "dirt" else 0
+        self.hotbar = [
+            "dirt",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ]
+        self.selected_slot = 0
 
     def on_ground(self, grid, grid_height: int, vel_y: float) -> bool:
         """Return True if standing on a solid block."""
@@ -60,3 +87,8 @@ class Player:
             grid[below_y, left_x] != world.EMPTY
             or grid[below_y, right_x] != world.EMPTY
         ) and vel_y >= 0
+
+    @property
+    def selected_item(self):
+        """Return the item currently selected in the hotbar."""
+        return self.hotbar[self.selected_slot]

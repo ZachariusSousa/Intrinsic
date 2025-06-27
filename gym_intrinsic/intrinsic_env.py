@@ -11,6 +11,15 @@ from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_
 from .weather import WeatherSystem
 
 
+HOTBAR_ITEM_TO_BLOCK = {
+    "dirt": world.DIRT,
+    "stone": world.STONE,
+    "copper": world.COPPER_ORE,
+    "iron": world.IRON_ORE,
+    "gold": world.GOLD_ORE,
+    "wood": world.WOOD,
+}
+
 class IntrinsicEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
 
@@ -75,6 +84,10 @@ class IntrinsicEnv(gym.Env):
         self.enemy_spawn_chance = 0.001
         self.passive_spawn_chance = 0.005
 
+        # hotbar / inventory view state
+        self.show_inventory = False
+        self._prev_e = False
+
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.player.reset(self.screen_height)
@@ -86,6 +99,8 @@ class IntrinsicEnv(gym.Env):
         self.projectiles = []
         self._mining_target = None
         self._mining_progress = 0
+        self.show_inventory = False
+        self._prev_e = False
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -99,8 +114,27 @@ class IntrinsicEnv(gym.Env):
 
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_e]:
-            self.player.eat_food()
+        # toggle inventory view with 'e'
+        if keys[pygame.K_e] and not self._prev_e:
+            self.show_inventory = not self.show_inventory
+        self._prev_e = keys[pygame.K_e]
+
+        # hotbar selection with number keys 1-0
+        number_keys = [
+            pygame.K_1,
+            pygame.K_2,
+            pygame.K_3,
+            pygame.K_4,
+            pygame.K_5,
+            pygame.K_6,
+            pygame.K_7,
+            pygame.K_8,
+            pygame.K_9,
+            pygame.K_0,
+        ]
+        for idx, k in enumerate(number_keys):
+            if keys[k]:
+                self.player.selected_slot = idx
 
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
@@ -181,9 +215,15 @@ class IntrinsicEnv(gym.Env):
         target_y = py + dy
 
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
-            if place and self.player.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == world.EMPTY:
-                self.grid[target_y, target_x] = world.DIRT
-                self.player.inventory["dirt"] -= 1
+            selected = self.player.selected_item
+            if (
+                place
+                and selected in HOTBAR_ITEM_TO_BLOCK
+                and self.player.inventory.get(selected, 0) > 0
+                and self.grid[target_y, target_x] == world.EMPTY
+            ):
+                self.grid[target_y, target_x] = HOTBAR_ITEM_TO_BLOCK[selected]
+                self.player.inventory[selected] -= 1
                 self._update_blocks()
 
             if destroy:
@@ -355,7 +395,7 @@ class IntrinsicEnv(gym.Env):
             inv_text = " | ".join(f"{k}: {v}" for k, v in self.player.inventory.items())
             text_surf = self.font.render(inv_text, True, (0, 0, 0))
             self.screen.blit(text_surf, (10, 10))
-            # health bar
+            # health/food/oxygen bars
             health_ratio = self.player.health / self.player.max_health
             pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 30, 100, 10), 2)
@@ -365,6 +405,41 @@ class IntrinsicEnv(gym.Env):
             oxygen_ratio = self.player.oxygen / self.player.max_oxygen
             pygame.draw.rect(self.screen, (0, 0, 255), pygame.Rect(10, 60, 100 * oxygen_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 60, 100, 10), 2)
+
+            # hotbar rendering
+            hotbar_y = self.screen_height - self.tile_size - 10
+            for i, item in enumerate(self.player.hotbar):
+                x = 10 + i * (self.tile_size + 4)
+                rect = pygame.Rect(x, hotbar_y, self.tile_size, self.tile_size)
+                pygame.draw.rect(self.screen, (200, 200, 200), rect, 0)
+                border = 3 if i == self.player.selected_slot else 1
+                pygame.draw.rect(
+                    self.screen,
+                    (255, 255, 0) if i == self.player.selected_slot else (0, 0, 0),
+                    rect,
+                    border,
+                )
+                if item:
+                    label = self.font.render(item[0].upper(), True, (0, 0, 0))
+                    self.screen.blit(label, (x + 4, hotbar_y + 2))
+                    count = self.player.inventory.get(item, 0)
+                    count_surf = self.font.render(str(count), True, (0, 0, 0))
+                    self.screen.blit(count_surf, (x + 2, hotbar_y + self.tile_size - 12))
+
+            if self.show_inventory:
+                lines = [f"{k}: {v}" for k, v in self.player.inventory.items()]
+                width = max(self.font.size(t)[0] for t in lines) + 20
+                height = len(lines) * 20 + 20
+                surf = pygame.Surface((width, height))
+                surf.fill((220, 220, 220))
+                for i, line in enumerate(lines):
+                    txt = self.font.render(line, True, (0, 0, 0))
+                    surf.blit(txt, (10, 10 + i * 20))
+                pos = (
+                    (self.screen_width - width) // 2,
+                    (self.screen_height - height) // 2,
+                )
+                self.screen.blit(surf, pos)
 
         pygame.display.flip()
         self.clock.tick(60)
