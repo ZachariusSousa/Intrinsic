@@ -13,7 +13,8 @@ register(
 
 from .intrinsic_env import IntrinsicEnv
 from .player import Player
+from .inventory import Inventory
 from .enemy_mobs import Enemy, Projectile
 from .passive_mobs import PassiveMob
 
-__all__ = ["InstrinsicEnv", "Player", "Enemy", "Projectile", "PassiveMob"]
+__all__ = ["InstrinsicEnv", "Player", "Inventory", "Enemy", "Projectile", "PassiveMob"]

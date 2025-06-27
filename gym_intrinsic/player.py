@@ -1,6 +1,6 @@
 import pygame
-from typing import Dict
 from . import world
+from .inventory import Inventory
 
 class Player:
     """Simple player container."""
@@ -21,29 +21,7 @@ class Player:
         self.food = self.max_food
         self.max_oxygen = 100
         self.oxygen = self.max_oxygen
-        self.inventory: Dict[str, int] = {
-            "dirt": 10,
-            "stone": 0,
-            "copper": 0,
-            "iron": 0,
-            "gold": 0,
-            "wood": 0,
-            "food": 0,
-        }
-        # basic 10 slot hotbar with the first slot containing dirt by default
-        self.hotbar = [
-            "dirt",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
-        self.selected_slot = 0
+        self.inventory = Inventory()
 
     def eat_food(self) -> None:
         """Consume one food item to refill the food bar."""
@@ -60,21 +38,7 @@ class Player:
         self.health = self.max_health
         self.food = self.max_food
         self.oxygen = self.max_oxygen
-        for key in self.inventory:
-            self.inventory[key] = 10 if key == "dirt" else 0
-        self.hotbar = [
-            "dirt",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
-        self.selected_slot = 0
+        self.inventory.reset()
 
     def on_ground(self, grid, grid_height: int, vel_y: float) -> bool:
         """Return True if standing on a solid block."""
@@ -91,4 +55,4 @@ class Player:
     @property
     def selected_item(self):
         """Return the item currently selected in the hotbar."""
-        return self.hotbar[self.selected_slot]
+        return self.inventory.selected_item

@@ -140,7 +140,7 @@ class IntrinsicEnv(gym.Env):
         ]
         for idx, k in enumerate(number_keys):
             if keys[k]:
-                self.player.selected_slot = idx
+                self.player.inventory.selected_slot = idx
 
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
@@ -417,14 +417,14 @@ class IntrinsicEnv(gym.Env):
             # hotbar rendering
             hotbar_y = self.screen_height - self.tile_size - 10
             new_hotbar = []
-            for i, item in enumerate(self.player.hotbar):
+            for i, item in enumerate(self.player.inventory.hotbar):
                 x = 10 + i * (self.tile_size + 4)
                 rect = pygame.Rect(x, hotbar_y, self.tile_size, self.tile_size)
                 pygame.draw.rect(self.screen, (200, 200, 200), rect, 0)
-                border = 3 if i == self.player.selected_slot else 1
+                border = 3 if i == self.player.inventory.selected_slot else 1
                 pygame.draw.rect(
                     self.screen,
-                    (255, 255, 0) if i == self.player.selected_slot else (0, 0, 0),
+                    (255, 255, 0) if i == self.player.inventory.selected_slot else (0, 0, 0),
                     rect,
                     border,
                 )
@@ -530,12 +530,7 @@ class IntrinsicEnv(gym.Env):
 
     def _shift_to_hotbar(self, item: str) -> None:
         """Move one item to the first empty hotbar slot."""
-        if self.player.inventory.get(item, 0) <= 0:
-            return
-        for i, slot in enumerate(self.player.hotbar):
-            if slot is None:
-                self.player.hotbar[i] = item
-                return
+        self.player.inventory.shift_to_hotbar(item)
 
     def _handle_ui_events(self, events) -> None:
         """Handle inventory/hotbar mouse actions."""
@@ -553,8 +548,8 @@ class IntrinsicEnv(gym.Env):
                     for idx, rect in enumerate(self._hotbar_rects):
                         if rect.collidepoint(pos):
                             if now - self._last_hotbar_click[idx] < 400:
-                                item = self.player.hotbar[idx]
+                                item = self.player.inventory.hotbar[idx]
                                 if item:
                                     self.player.inventory[item] = self.player.inventory.get(item, 0)
-                                    self.player.hotbar[idx] = None
+                                    self.player.inventory.hotbar[idx] = None
                             self._last_hotbar_click[idx] = now
