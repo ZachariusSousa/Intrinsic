@@ -3,6 +3,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import List
 from .player import Player
+from . import env_utils
 
 @dataclass
 class Enemy:
@@ -24,7 +25,7 @@ def spawn_random_enemies(num: int, env) -> List[Enemy]:
     for _ in range(num):
         etype = np.random.choice(["melee", "ranged"])
         ex = np.random.randint(0, env.grid_width)
-        ey = env._find_spawn_y(ex)
+        ey = env_utils.find_spawn_y(env, ex)
         rect = pygame.Rect(ex * env.tile_size, ey, env.tile_size, env.tile_size)
         health = 30 if etype == "melee" else 20
         color = (200, 0, 0) if etype == "melee" else (0, 0, 200)
