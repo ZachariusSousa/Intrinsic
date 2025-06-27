@@ -9,16 +9,7 @@ from .player import Player
 from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 from .weather import WeatherSystem
-
-
-HOTBAR_ITEM_TO_BLOCK = {
-    "dirt": world.DIRT,
-    "stone": world.STONE,
-    "copper": world.COPPER_ORE,
-    "iron": world.IRON_ORE,
-    "gold": world.GOLD_ORE,
-    "wood": world.WOOD,
-}
+from . import inventory
 
 class IntrinsicEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
@@ -87,6 +78,7 @@ class IntrinsicEnv(gym.Env):
         # hotbar / inventory view state
         self.show_inventory = False
         self._prev_e = False
+        inventory.init_state(self)
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -101,6 +93,7 @@ class IntrinsicEnv(gym.Env):
         self._mining_progress = 0
         self.show_inventory = False
         self._prev_e = False
+        inventory.init_state(self)
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -218,11 +211,11 @@ class IntrinsicEnv(gym.Env):
             selected = self.player.selected_item
             if (
                 place
-                and selected in HOTBAR_ITEM_TO_BLOCK
+                and selected in inventory.HOTBAR_ITEM_TO_BLOCK
                 and self.player.inventory.get(selected, 0) > 0
                 and self.grid[target_y, target_x] == world.EMPTY
             ):
-                self.grid[target_y, target_x] = HOTBAR_ITEM_TO_BLOCK[selected]
+                self.grid[target_y, target_x] = inventory.HOTBAR_ITEM_TO_BLOCK[selected]
                 self.player.inventory[selected] -= 1
                 self._update_blocks()
 
@@ -324,10 +317,12 @@ class IntrinsicEnv(gym.Env):
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             self.clock = pygame.time.Clock()
             self.font = pygame.font.SysFont(None, 24)
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 self.close()
                 return
+        inventory.handle_events(self, events)
         # sky color depends on day/night cycle and season
         self.screen.fill(self.weather.get_sky_color())
         light = self.weather.get_light_intensity()
@@ -392,9 +387,6 @@ class IntrinsicEnv(gym.Env):
 
         # draw inventory UI
         if self.font:
-            inv_text = " | ".join(f"{k}: {v}" for k, v in self.player.inventory.items())
-            text_surf = self.font.render(inv_text, True, (0, 0, 0))
-            self.screen.blit(text_surf, (10, 10))
             # health/food/oxygen bars
             health_ratio = self.player.health / self.player.max_health
             pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
@@ -406,40 +398,7 @@ class IntrinsicEnv(gym.Env):
             pygame.draw.rect(self.screen, (0, 0, 255), pygame.Rect(10, 60, 100 * oxygen_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 60, 100, 10), 2)
 
-            # hotbar rendering
-            hotbar_y = self.screen_height - self.tile_size - 10
-            for i, item in enumerate(self.player.hotbar):
-                x = 10 + i * (self.tile_size + 4)
-                rect = pygame.Rect(x, hotbar_y, self.tile_size, self.tile_size)
-                pygame.draw.rect(self.screen, (200, 200, 200), rect, 0)
-                border = 3 if i == self.player.selected_slot else 1
-                pygame.draw.rect(
-                    self.screen,
-                    (255, 255, 0) if i == self.player.selected_slot else (0, 0, 0),
-                    rect,
-                    border,
-                )
-                if item:
-                    label = self.font.render(item[0].upper(), True, (0, 0, 0))
-                    self.screen.blit(label, (x + 4, hotbar_y + 2))
-                    count = self.player.inventory.get(item, 0)
-                    count_surf = self.font.render(str(count), True, (0, 0, 0))
-                    self.screen.blit(count_surf, (x + 2, hotbar_y + self.tile_size - 12))
-
-            if self.show_inventory:
-                lines = [f"{k}: {v}" for k, v in self.player.inventory.items()]
-                width = max(self.font.size(t)[0] for t in lines) + 20
-                height = len(lines) * 20 + 20
-                surf = pygame.Surface((width, height))
-                surf.fill((220, 220, 220))
-                for i, line in enumerate(lines):
-                    txt = self.font.render(line, True, (0, 0, 0))
-                    surf.blit(txt, (10, 10 + i * 20))
-                pos = (
-                    (self.screen_width - width) // 2,
-                    (self.screen_height - height) // 2,
-                )
-                self.screen.blit(surf, pos)
+            inventory.draw(self)
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -498,3 +457,4 @@ class IntrinsicEnv(gym.Env):
             and np.random.random() < self.passive_spawn_chance
         ):
             self.passive_mobs.extend(spawn_random_passive_mobs(1, self))
+
