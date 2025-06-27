@@ -87,6 +87,9 @@ class IntrinsicEnv(gym.Env):
         # hotbar / inventory view state
         self.show_inventory = False
         self._prev_e = False
+        self._inventory_item_rects = []
+        self._hotbar_rects = []
+        self._last_hotbar_click = [0] * 10
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -101,6 +104,9 @@ class IntrinsicEnv(gym.Env):
         self._mining_progress = 0
         self.show_inventory = False
         self._prev_e = False
+        self._inventory_item_rects = []
+        self._hotbar_rects = []
+        self._last_hotbar_click = [0] * 10
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -324,10 +330,12 @@ class IntrinsicEnv(gym.Env):
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             self.clock = pygame.time.Clock()
             self.font = pygame.font.SysFont(None, 24)
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 self.close()
                 return
+        self._handle_ui_events(events)
         # sky color depends on day/night cycle and season
         self.screen.fill(self.weather.get_sky_color())
         light = self.weather.get_light_intensity()
@@ -408,6 +416,7 @@ class IntrinsicEnv(gym.Env):
 
             # hotbar rendering
             hotbar_y = self.screen_height - self.tile_size - 10
+            new_hotbar = []
             for i, item in enumerate(self.player.hotbar):
                 x = 10 + i * (self.tile_size + 4)
                 rect = pygame.Rect(x, hotbar_y, self.tile_size, self.tile_size)
@@ -425,21 +434,41 @@ class IntrinsicEnv(gym.Env):
                     count = self.player.inventory.get(item, 0)
                     count_surf = self.font.render(str(count), True, (0, 0, 0))
                     self.screen.blit(count_surf, (x + 2, hotbar_y + self.tile_size - 12))
+                new_hotbar.append(rect)
+            self._hotbar_rects = new_hotbar
 
             if self.show_inventory:
-                lines = [f"{k}: {v}" for k, v in self.player.inventory.items()]
-                width = max(self.font.size(t)[0] for t in lines) + 20
-                height = len(lines) * 20 + 20
+                items = list(self.player.inventory.items())
+                cols = 5
+                size = self.tile_size
+                rows = (len(items) + cols - 1) // cols
+                width = cols * (size + 4) + 20
+                height = rows * (size + 20) + 20
                 surf = pygame.Surface((width, height))
                 surf.fill((220, 220, 220))
-                for i, line in enumerate(lines):
-                    txt = self.font.render(line, True, (0, 0, 0))
-                    surf.blit(txt, (10, 10 + i * 20))
+                new_rects = []
+                for idx, (name, count) in enumerate(items):
+                    cx = idx % cols
+                    cy = idx // cols
+                    x = 10 + cx * (size + 4)
+                    y = 10 + cy * (size + 20)
+                    rect = pygame.Rect(x, y, size, size)
+                    color = world.COLOR_MAP.get(HOTBAR_ITEM_TO_BLOCK.get(name, 0), (180, 180, 180))
+                    pygame.draw.rect(surf, color, rect)
+                    label = self.font.render(name[0].upper(), True, (0, 0, 0))
+                    surf.blit(label, (x + 3, y + 2))
+                    cnt = self.font.render(str(count), True, (0, 0, 0))
+                    surf.blit(cnt, (x + 2, y + size - 12))
+                    screen_rect = pygame.Rect((self.screen_width - width) // 2 + x, (self.screen_height - height) // 2 + y, size, size)
+                    new_rects.append((name, screen_rect))
                 pos = (
                     (self.screen_width - width) // 2,
                     (self.screen_height - height) // 2,
                 )
                 self.screen.blit(surf, pos)
+                self._inventory_item_rects = new_rects
+            else:
+                self._inventory_item_rects = []
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -498,3 +527,34 @@ class IntrinsicEnv(gym.Env):
             and np.random.random() < self.passive_spawn_chance
         ):
             self.passive_mobs.extend(spawn_random_passive_mobs(1, self))
+
+    def _shift_to_hotbar(self, item: str) -> None:
+        """Move one item to the first empty hotbar slot."""
+        if self.player.inventory.get(item, 0) <= 0:
+            return
+        for i, slot in enumerate(self.player.hotbar):
+            if slot is None:
+                self.player.hotbar[i] = item
+                return
+
+    def _handle_ui_events(self, events) -> None:
+        """Handle inventory/hotbar mouse actions."""
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and self.show_inventory:
+                pos = event.pos
+                mods = pygame.key.get_mods()
+                if mods & pygame.KMOD_SHIFT:
+                    for name, rect in self._inventory_item_rects:
+                        if rect.collidepoint(pos):
+                            self._shift_to_hotbar(name)
+                            break
+                else:
+                    now = pygame.time.get_ticks()
+                    for idx, rect in enumerate(self._hotbar_rects):
+                        if rect.collidepoint(pos):
+                            if now - self._last_hotbar_click[idx] < 400:
+                                item = self.player.hotbar[idx]
+                                if item:
+                                    self.player.inventory[item] = self.player.inventory.get(item, 0)
+                                    self.player.hotbar[idx] = None
+                            self._last_hotbar_click[idx] = now
