@@ -2,8 +2,7 @@ import numpy as np
 import pygame
 
 from . import world
-from .enemy_mobs import spawn_random_enemies
-from .passive_mobs import spawn_random_passive_mobs
+
 
 
 def extend_world_right(env, extra_cols: int) -> None:
@@ -44,6 +43,9 @@ def find_spawn_y(env, tile_x: int) -> int:
 
 
 def spawn_mobs_randomly(env) -> None:
+    from .enemy_mobs import spawn_random_enemies  # moved import here
+    from .passive_mobs import spawn_random_passive_mobs  # moved import here
+
     """Occasionally add new mobs to the world."""
     if (
         len(env.enemies) < env.max_enemies
@@ -62,23 +64,15 @@ def shift_to_hotbar(env, item: str) -> None:
 
 
 def handle_ui_events(env, events) -> None:
-    for event in events:
-        if event.type == pygame.MOUSEBUTTONDOWN and env.show_inventory:
-            pos = event.pos
-            mods = pygame.key.get_mods()
-            if mods & pygame.KMOD_SHIFT:
-                for name, rect in env._inventory_item_rects:
-                    if rect.collidepoint(pos):
-                        shift_to_hotbar(env, name)
-                        break
-            else:
-                now = pygame.time.get_ticks()
-                for idx, rect in enumerate(env._hotbar_rects):
-                    if rect.collidepoint(pos):
-                        if now - env._last_hotbar_click[idx] < 400:
-                            item = env.player.inventory.hotbar[idx]
-                            if item:
-                                env.player.inventory[item] = env.player.inventory.get(item, 0)
-                                env.player.inventory.hotbar[idx] = None
-                        env._last_hotbar_click[idx] = now
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and env.show_inventory:
+                print("hello")
+                pos = event.pos
+                mods = pygame.key.get_mods()
+                if mods & pygame.KMOD_SHIFT:
+                    # Shift-click inventory to move to hotbar
+                    for name, rect in env._inventory_item_rects:
+                        if rect.collidepoint(pos):
+                            shift_to_hotbar(env, name)
+                            break
 
