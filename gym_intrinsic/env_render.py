@@ -1,6 +1,7 @@
 import pygame
 
 from . import world, blocks, env_utils
+from .ui import Button
 from .constants import HOTBAR_ITEM_TO_BLOCK
 
 
@@ -106,8 +107,9 @@ def render(env):
                 count = env.player.inventory.get(item, 0)
                 count_surf = env.font.render(str(count), True, (0, 0, 0))
                 env.screen.blit(count_surf, (x + 2, hotbar_y + env.tile_size - 12))
-            new_hotbar.append(rect)
-        env._hotbar_rects = new_hotbar
+            btn = Button(rect, {"type": "hotbar", "index": i}, draggable=True)
+            new_hotbar.append(btn)
+        env._hotbar_buttons = new_hotbar
 
         if env.show_inventory:
             items = list(env.player.inventory.items())
@@ -132,15 +134,29 @@ def render(env):
                 cnt = env.font.render(str(count), True, (0, 0, 0))
                 surf.blit(cnt, (x + 2, y + size - 12))
                 screen_rect = pygame.Rect((env.screen_width - width) // 2 + x, (env.screen_height - height) // 2 + y, size, size)
-                new_rects.append((name, screen_rect))
+                new_rects.append(Button(screen_rect, {"type": "inventory", "name": name}, draggable=True))
             pos = (
                 (env.screen_width - width) // 2,
                 (env.screen_height - height) // 2,
             )
             env.screen.blit(surf, pos)
-            env._inventory_item_rects = new_rects
+            env._inventory_buttons = new_rects
         else:
-            env._inventory_item_rects = []
+            env._inventory_buttons = []
+
+        # draw dragged item label
+        if env._dragged_item is not None:
+            mx, my = env._drag_pos
+            if env._dragged_item[0] == "inventory":
+                label = env.font.render(env._dragged_item[1][0].upper(), True, (0, 0, 0))
+            else:
+                item_name = env.player.inventory.hotbar[env._dragged_item[1]]
+                if item_name:
+                    label = env.font.render(item_name[0].upper(), True, (0, 0, 0))
+                else:
+                    label = None
+            if label:
+                env.screen.blit(label, (mx, my))
 
     pygame.display.flip()
     env.clock.tick(60)

@@ -83,6 +83,10 @@ class IntrinsicEnv(gym.Env):
         self._prev_e = False
         self._inventory_item_rects = []
         self._hotbar_rects = []
+        self._inventory_buttons = []
+        self._hotbar_buttons = []
+        self._dragged_item = None
+        self._drag_pos = (0, 0)
         self._last_hotbar_click = [0] * 10
 
     def reset(self, *, seed=None, options=None):
@@ -100,6 +104,10 @@ class IntrinsicEnv(gym.Env):
         self._prev_e = False
         self._inventory_item_rects = []
         self._hotbar_rects = []
+        self._inventory_buttons = []
+        self._hotbar_buttons = []
+        self._dragged_item = None
+        self._drag_pos = (0, 0)
         self._last_hotbar_click = [0] * 10
         return self._get_obs(), {}
 

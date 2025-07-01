@@ -61,3 +61,13 @@ class Inventory:
             if slot is None:
                 self.hotbar[i] = item
                 return
+
+    def remove_from_hotbar(self, index: int) -> None:
+        """Clear the hotbar slot at the given index."""
+        if 0 <= index < len(self.hotbar):
+            self.hotbar[index] = None
+
+    def swap_hotbar_slots(self, i: int, j: int) -> None:
+        """Swap two hotbar slots."""
+        if 0 <= i < len(self.hotbar) and 0 <= j < len(self.hotbar):
+            self.hotbar[i], self.hotbar[j] = self.hotbar[j], self.hotbar[i]

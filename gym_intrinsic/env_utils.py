@@ -63,16 +63,50 @@ def shift_to_hotbar(env, item: str) -> None:
     env.player.inventory.shift_to_hotbar(item)
 
 
+def shift_from_hotbar(env, index: int) -> None:
+    env.player.inventory.remove_from_hotbar(index)
+
+
 def handle_ui_events(env, events) -> None:
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONDOWN and env.show_inventory:
-                print("hello")
-                pos = event.pos
-                mods = pygame.key.get_mods()
-                if mods & pygame.KMOD_SHIFT:
-                    # Shift-click inventory to move to hotbar
-                    for name, rect in env._inventory_item_rects:
-                        if rect.collidepoint(pos):
-                            shift_to_hotbar(env, name)
-                            break
+    for event in events:
+        if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
+            # handle inventory buttons when inventory is visible
+            if env.show_inventory:
+                for btn in env._inventory_buttons:
+                    action = btn.handle_event(event)
+                    if action == "shift":
+                        shift_to_hotbar(env, btn.data["name"])
+                    elif action == "click":
+                        env._dragged_item = ("inventory", btn.data["name"])
+                        env._drag_pos = event.pos
+                    elif action == "drag":
+                        env._drag_pos = event.pos
+                    elif action == "drop":
+                        env._dragged_item = None
+
+            # hotbar buttons
+            for btn in env._hotbar_buttons:
+                action = btn.handle_event(event)
+                index = btn.data["index"]
+                item = env.player.inventory.hotbar[index]
+                if action == "shift":
+                    shift_from_hotbar(env, index)
+                elif action == "click" and item:
+                    env._dragged_item = ("hotbar", index)
+                    env._drag_pos = event.pos
+                elif action == "drag":
+                    env._drag_pos = event.pos
+                elif action == "drop":
+                    if env._dragged_item is not None:
+                        # handle drop onto another hotbar slot
+                        if env._dragged_item[0] == "hotbar":
+                            src = env._dragged_item[1]
+                            if src != index:
+                                env.player.inventory.swap_hotbar_slots(src, index)
+                        elif env._dragged_item[0] == "inventory" and item is None:
+                            env.player.inventory.hotbar[index] = env._dragged_item[1]
+                    env._dragged_item = None
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            env._dragged_item = None
 
