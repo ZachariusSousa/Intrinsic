@@ -30,6 +30,8 @@ class Player:
             "wood": 0,
             "food": 0,
         }
+        # simple hotbar storing item type names for quick access
+        self.hotbar = ["dirt", None, None, None, None]
 
     def eat_food(self) -> None:
         """Consume one food item to refill the food bar."""
@@ -48,6 +50,7 @@ class Player:
         self.oxygen = self.max_oxygen
         for key in self.inventory:
             self.inventory[key] = 10 if key == "dirt" else 0
+        self.hotbar = ["dirt", None, None, None, None]
 
     def on_ground(self, grid, grid_height: int, vel_y: float) -> bool:
         """Return True if standing on a solid block."""
