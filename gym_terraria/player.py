@@ -1,6 +1,6 @@
 import pygame
-from typing import Dict
 from . import world
+from .inventory import Inventory
 
 class Player:
     """Simple player container."""
@@ -21,15 +21,8 @@ class Player:
         self.food = self.max_food
         self.max_oxygen = 100
         self.oxygen = self.max_oxygen
-        self.inventory: Dict[str, int] = {
-            "dirt": 10,
-            "stone": 0,
-            "copper": 0,
-            "iron": 0,
-            "gold": 0,
-            "wood": 0,
-            "food": 0,
-        }
+        self.inventory = Inventory(40)
+        self.inventory.add_item("dirt", 10)
         # simple hotbar storing item type names for quick access
         self.hotbar = ["dirt"] + [None] * 9
         self.selected_slot = 0
@@ -55,8 +48,8 @@ class Player:
         self.health = self.max_health
         self.food = self.max_food
         self.oxygen = self.max_oxygen
-        for key in self.inventory:
-            self.inventory[key] = 10 if key == "dirt" else 0
+        self.inventory.clear()
+        self.inventory.add_item("dirt", 10)
         self.hotbar = ["dirt"] + [None] * 9
         self.selected_slot = 0
 
