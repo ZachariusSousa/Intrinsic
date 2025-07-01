@@ -1,6 +1,7 @@
 import pygame
 import numpy as np
 import gym
+from typing import Optional
 from gym import spaces
 
 from . import world
@@ -9,6 +10,7 @@ from .player import Player
 from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 from .weather import WeatherSystem
+from .inventory_ui import InventoryUI
 
 
 class TerrariaEnv(gym.Env):
@@ -57,6 +59,7 @@ class TerrariaEnv(gym.Env):
 
         self.screen = None
         self.clock = None
+        self.inventory_ui: Optional[InventoryUI] = None
         # Weather and time system
         self.weather = WeatherSystem()
 
@@ -284,10 +287,13 @@ class TerrariaEnv(gym.Env):
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             self.clock = pygame.time.Clock()
             self.font = pygame.font.SysFont(None, 24)
+            self.inventory_ui = InventoryUI(self.player, self.font)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.close()
                 return
+            if self.inventory_ui:
+                self.inventory_ui.handle_event(event)
         # sky color depends on day/night cycle and season
         self.screen.fill(self.weather.get_sky_color())
         light = self.weather.get_light_intensity()
@@ -352,9 +358,8 @@ class TerrariaEnv(gym.Env):
 
         # draw inventory UI
         if self.font:
-            inv_text = " | ".join(f"{k}: {v}" for k, v in self.player.inventory.items())
-            text_surf = self.font.render(inv_text, True, (0, 0, 0))
-            self.screen.blit(text_surf, (10, 10))
+            if self.inventory_ui:
+                self.inventory_ui.draw(self.screen)
             # health bar
             health_ratio = self.player.health / self.player.max_health
             pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
