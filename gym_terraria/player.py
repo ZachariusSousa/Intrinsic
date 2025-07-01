@@ -31,7 +31,14 @@ class Player:
             "food": 0,
         }
         # simple hotbar storing item type names for quick access
-        self.hotbar = ["dirt", None, None, None, None]
+        self.hotbar = ["dirt"] + [None] * 9
+        self.selected_slot = 0
+
+    def current_item(self):
+        """Return the item currently selected in the hotbar."""
+        if 0 <= self.selected_slot < len(self.hotbar):
+            return self.hotbar[self.selected_slot]
+        return None
 
     def eat_food(self) -> None:
         """Consume one food item to refill the food bar."""
@@ -50,7 +57,8 @@ class Player:
         self.oxygen = self.max_oxygen
         for key in self.inventory:
             self.inventory[key] = 10 if key == "dirt" else 0
-        self.hotbar = ["dirt", None, None, None, None]
+        self.hotbar = ["dirt"] + [None] * 9
+        self.selected_slot = 0
 
     def on_ground(self, grid, grid_height: int, vel_y: float) -> bool:
         """Return True if standing on a solid block."""

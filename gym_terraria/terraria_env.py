@@ -12,6 +12,16 @@ from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_
 from .weather import WeatherSystem
 from .inventory_ui import InventoryUI
 
+# Mapping from item names in the hotbar to block IDs
+ITEM_TO_BLOCK = {
+    "dirt": world.DIRT,
+    "stone": world.STONE,
+    "copper": world.COPPER_ORE,
+    "iron": world.IRON_ORE,
+    "gold": world.GOLD_ORE,
+    "wood": world.WOOD,
+}
+
 
 class TerrariaEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
@@ -184,9 +194,15 @@ class TerrariaEnv(gym.Env):
         target_y = py + dy
 
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
-            if place and self.player.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == world.EMPTY:
-                self.grid[target_y, target_x] = world.DIRT
-                self.player.inventory["dirt"] -= 1
+            selected = self.player.current_item()
+            if (
+                place
+                and selected in ITEM_TO_BLOCK
+                and self.player.inventory.get(selected, 0) > 0
+                and self.grid[target_y, target_x] == world.EMPTY
+            ):
+                self.grid[target_y, target_x] = ITEM_TO_BLOCK[selected]
+                self.player.inventory[selected] -= 1
                 self._update_blocks()
 
             if destroy:
@@ -375,6 +391,11 @@ class TerrariaEnv(gym.Env):
     def handle_events(self, events) -> None:
         """Forward pygame events to UI (e.g., inventory)."""
         for event in events:
+            if event.type == pygame.KEYDOWN:
+                if pygame.K_1 <= event.key <= pygame.K_9:
+                    self.player.selected_slot = event.key - pygame.K_1
+                elif event.key == pygame.K_0:
+                    self.player.selected_slot = 9
             if self.inventory_ui:
                 self.inventory_ui.handle_event(event)
 
