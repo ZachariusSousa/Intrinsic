@@ -6,6 +6,7 @@ class InventoryUI:
 
     SLOT_SIZE = 40
     PADDING = 4
+    INV_COLUMNS = 4  # Number of columns for inventory grid
 
     def __init__(self, player, font):
         self.player = player
@@ -24,20 +25,31 @@ class InventoryUI:
 
     def reposition(self, width: int, height: int) -> None:
         """Compute slot rectangles based on screen size."""
+        # Hotbar
         self.hotbar_rects = []
-        hb_w = len(self.player.hotbar) * self.SLOT_SIZE
+        hb_w = len(self.player.hotbar) * (self.SLOT_SIZE + self.PADDING)
         start_x = (width - hb_w) // 2
         y = height - self.SLOT_SIZE - 10
         for i in range(len(self.player.hotbar)):
-            rect = pygame.Rect(start_x + i * self.SLOT_SIZE, y, self.SLOT_SIZE, self.SLOT_SIZE)
+            rect = pygame.Rect(start_x + i * (self.SLOT_SIZE + self.PADDING), y, self.SLOT_SIZE, self.SLOT_SIZE)
             self.hotbar_rects.append(rect)
 
+        # Inventory (grid)
         self.inv_rects = []
         if self.show_inventory:
-            x = (width - self.SLOT_SIZE) // 2
-            y = height // 2 - (len(self.player.inventory) * self.SLOT_SIZE) // 2
-            for idx, name in enumerate(self.player.inventory.keys()):
-                rect = pygame.Rect(x, y + idx * self.SLOT_SIZE, self.SLOT_SIZE, self.SLOT_SIZE)
+            inv_items = list(self.player.inventory.keys())
+            rows = (len(inv_items) + self.INV_COLUMNS - 1) // self.INV_COLUMNS
+            total_w = self.INV_COLUMNS * (self.SLOT_SIZE + self.PADDING) - self.PADDING
+            total_h = rows * (self.SLOT_SIZE + self.PADDING) - self.PADDING
+            start_x = (width - total_w) // 2
+            start_y = (height - total_h) // 2
+
+            for idx, name in enumerate(inv_items):
+                col = idx % self.INV_COLUMNS
+                row = idx // self.INV_COLUMNS
+                x = start_x + col * (self.SLOT_SIZE + self.PADDING)
+                y = start_y + row * (self.SLOT_SIZE + self.PADDING)
+                rect = pygame.Rect(x, y, self.SLOT_SIZE, self.SLOT_SIZE)
                 self.inv_rects.append((name, rect))
 
     def handle_event(self, event) -> None:
@@ -70,12 +82,13 @@ class InventoryUI:
                         self.player.hotbar[idx] = self.dragging
                         self.dragging = None
                         return
-                # drop anywhere else returns item to inventory (no changes needed)
+                # Drop anywhere else returns item to inventory
                 self.dragging = None
 
     def draw(self, surface) -> None:
         self.reposition(surface.get_width(), surface.get_height())
-        # draw inventory slots
+
+        # Inventory
         for name, rect in self.inv_rects:
             pygame.draw.rect(surface, (200, 200, 200), rect)
             pygame.draw.rect(surface, (0, 0, 0), rect, 2)
@@ -86,7 +99,7 @@ class InventoryUI:
                 cnt_surf = self.font.render(str(cnt), True, (0, 0, 0))
                 surface.blit(cnt_surf, (rect.right - cnt_surf.get_width() - 2, rect.bottom - cnt_surf.get_height() - 2))
 
-        # draw hotbar
+        # Hotbar
         for idx, rect in enumerate(self.hotbar_rects):
             pygame.draw.rect(surface, (180, 180, 180), rect)
             border_color = (255, 255, 0) if idx == self.player.selected_slot else (0, 0, 0)
@@ -99,6 +112,7 @@ class InventoryUI:
                 cnt_surf = self.font.render(str(cnt), True, (0, 0, 0))
                 surface.blit(cnt_surf, (rect.right - cnt_surf.get_width() - 2, rect.bottom - cnt_surf.get_height() - 2))
 
+        # Dragged item
         if self.dragging:
             pos = pygame.mouse.get_pos()
             rect = pygame.Rect(pos[0] - self.offset[0], pos[1] - self.offset[1], self.SLOT_SIZE, self.SLOT_SIZE)
@@ -106,5 +120,3 @@ class InventoryUI:
             pygame.draw.rect(surface, (0, 0, 0), rect, 2)
             text = self.font.render(self.dragging[:3], True, (0, 0, 0))
             surface.blit(text, (rect.x + 2, rect.y + 2))
-
-
