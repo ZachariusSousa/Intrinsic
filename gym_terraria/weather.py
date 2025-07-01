@@ -8,7 +8,7 @@ class WeatherSystem:
         # Number of environment steps that make up one day and one season
         self.day_length = day_length
         self.season_length = season_length
-        self.tick = 0
+        self.tick = day_length / 4
         self.seasons = ["spring", "summer", "autumn", "winter"]
         self._season_index = 0
 

@@ -292,8 +292,6 @@ class TerrariaEnv(gym.Env):
             if event.type == pygame.QUIT:
                 self.close()
                 return
-            if self.inventory_ui:
-                self.inventory_ui.handle_event(event)
         # sky color depends on day/night cycle and season
         self.screen.fill(self.weather.get_sky_color())
         light = self.weather.get_light_intensity()
@@ -373,6 +371,12 @@ class TerrariaEnv(gym.Env):
 
         pygame.display.flip()
         self.clock.tick(60)
+        
+    def handle_events(self, events) -> None:
+        """Forward pygame events to UI (e.g., inventory)."""
+        for event in events:
+            if self.inventory_ui:
+                self.inventory_ui.handle_event(event)
 
     def close(self):
         if self.screen is not None:

@@ -20,10 +20,14 @@ def main():
     env = gym.make("Terraria-v0")
     obs, info = env.reset()
     done = False
+ 
     while not done:
-        for event in pygame.event.get():
+        events = pygame.event.get()          
+        for event in events:
             if event.type == pygame.QUIT:
                 done = True
+
+        env.handle_events(events)         
 
         if args.control == "manual":
             keys = pygame.key.get_pressed()
@@ -36,7 +40,7 @@ def main():
             ], dtype=np.int8)
         else:
             action = env.action_space.sample()
-            
+
         obs, reward, done, truncated, info = env.step(action)
         env.render()
     env.close()
