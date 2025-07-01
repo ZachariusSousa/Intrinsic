@@ -104,9 +104,6 @@ class TerrariaEnv(gym.Env):
 
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_e]:
-            self.player.eat_food()
-
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
         if (left or right or jump) and self.player.food > 0:
@@ -401,6 +398,8 @@ class TerrariaEnv(gym.Env):
                     self.player.selected_slot = event.key - pygame.K_1
                 elif event.key == pygame.K_0:
                     self.player.selected_slot = 9
+                elif event.key == pygame.K_e and self.inventory_ui:
+                    self.inventory_ui.toggle()
             if self.inventory_ui:
                 self.inventory_ui.handle_event(event)
 

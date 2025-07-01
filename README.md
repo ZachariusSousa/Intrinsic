@@ -50,4 +50,4 @@ python run_env.py              # AI-controlled random actions
 python run_env.py --control manual  # Play manually with the keyboard
 ```
 When playing manually use the arrow keys (or ``A``/``D``) to move and ``Space`` to jump.
-Press number keys ``1``-``0`` to select a hotbar slot for item use.
+Press number keys ``1``-``0`` to select a hotbar slot for item use. Press ``E`` to open or close the inventory and drag items into the hotbar.
