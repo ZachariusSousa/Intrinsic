@@ -16,6 +16,11 @@ class InventoryUI:
         self.offset = (0, 0)
         self.hotbar_rects: List[pygame.Rect] = []
         self.inv_rects: List[Tuple[str, pygame.Rect]] = []
+        self.show_inventory = False
+
+    def toggle(self) -> None:
+        """Toggle inventory visibility."""
+        self.show_inventory = not self.show_inventory
 
     def reposition(self, width: int, height: int) -> None:
         """Compute slot rectangles based on screen size."""
@@ -28,11 +33,12 @@ class InventoryUI:
             self.hotbar_rects.append(rect)
 
         self.inv_rects = []
-        x = 10
-        y = height - self.SLOT_SIZE * (len(self.player.inventory)) - self.SLOT_SIZE - 20
-        for idx, name in enumerate(self.player.inventory.keys()):
-            rect = pygame.Rect(x, y + idx * self.SLOT_SIZE, self.SLOT_SIZE, self.SLOT_SIZE)
-            self.inv_rects.append((name, rect))
+        if self.show_inventory:
+            x = (width - self.SLOT_SIZE) // 2
+            y = height // 2 - (len(self.player.inventory) * self.SLOT_SIZE) // 2
+            for idx, name in enumerate(self.player.inventory.keys()):
+                rect = pygame.Rect(x, y + idx * self.SLOT_SIZE, self.SLOT_SIZE, self.SLOT_SIZE)
+                self.inv_rects.append((name, rect))
 
     def handle_event(self, event) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -47,13 +53,14 @@ class InventoryUI:
                         self.offset = (pos[0] - rect.x, pos[1] - rect.y)
                         self.player.hotbar[idx] = None
                     return
-            for idx, (name, rect) in enumerate(self.inv_rects):
-                if rect.collidepoint(pos) and self.player.inventory.get(name, 0) > 0:
-                    self.dragging = name
-                    self.drag_from_hotbar = False
-                    self.drag_index = idx
-                    self.offset = (pos[0] - rect.x, pos[1] - rect.y)
-                    return
+            if self.show_inventory:
+                for idx, (name, rect) in enumerate(self.inv_rects):
+                    if rect.collidepoint(pos) and self.player.inventory.get(name, 0) > 0:
+                        self.dragging = name
+                        self.drag_from_hotbar = False
+                        self.drag_index = idx
+                        self.offset = (pos[0] - rect.x, pos[1] - rect.y)
+                        return
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             pos = event.pos
