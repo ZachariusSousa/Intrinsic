@@ -6,7 +6,8 @@ class InventoryUI:
 
     SLOT_SIZE = 40
     PADDING = 4
-    INV_COLUMNS = 4  # Number of columns for inventory grid
+    INV_COLUMNS = 10  # Number of columns for inventory grid
+    MAX_SLOTS = 40  # Maximum number of slots to display
 
     def __init__(self, player, font):
         self.player = player
@@ -120,3 +121,16 @@ class InventoryUI:
             pygame.draw.rect(surface, (0, 0, 0), rect, 2)
             text = self.font.render(self.dragging[:3], True, (0, 0, 0))
             surface.blit(text, (rect.x + 2, rect.y + 2))
+
+        # Draw empty slots in inventory up to MAX_SLOTS
+        if self.show_inventory:
+            item_names = list(self.player.inventory.keys())
+            for i in range(self.MAX_SLOTS):
+                if i >= len(item_names):
+                    col = i % self.INV_COLUMNS
+                    row = i // self.INV_COLUMNS
+                    x = (surface.get_width() - self.INV_COLUMNS * (self.SLOT_SIZE + self.PADDING) + self.PADDING) // 2 + col * (self.SLOT_SIZE + self.PADDING)
+                    y = (surface.get_height() - ((len(item_names) + self.INV_COLUMNS - 1) // self.INV_COLUMNS) * (self.SLOT_SIZE + self.PADDING) + self.PADDING) // 2 + row * (self.SLOT_SIZE + self.PADDING)
+                    rect = pygame.Rect(x, y, self.SLOT_SIZE, self.SLOT_SIZE)
+                    pygame.draw.rect(surface, (200, 200, 200), rect)
+                    pygame.draw.rect(surface, (0, 0, 0), rect, 2)
