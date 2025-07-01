@@ -214,7 +214,7 @@ class TerrariaEnv(gym.Env):
                         if mob.rect.colliderect(attack_rect):
                             mob.health -= dmg
                             if mob.health <= 0:
-                                self.player.inventory["food"] = self.player.inventory.get("food", 0) + mob.food_drop
+                                self.player.inventory.add_item("food", mob.food_drop)
                                 self.passive_mobs.remove(mob)
 
             if destroy:
@@ -231,7 +231,7 @@ class TerrariaEnv(gym.Env):
                         self.grid[target_y, target_x] = world.EMPTY
                         item_name = items.BLOCK_TO_ITEM.get(block)
                         if item_name:
-                            self.player.inventory[item_name] = self.player.inventory.get(item_name, 0) + 1
+                            self.player.inventory.add_item(item_name)
                         self._update_blocks()
                         self._mining_target = None
                         self._mining_progress = 0
@@ -253,7 +253,7 @@ class TerrariaEnv(gym.Env):
                         if mob.rect.colliderect(attack_rect):
                             mob.health -= 10
                             if mob.health <= 0:
-                                self.player.inventory["food"] = self.player.inventory.get("food", 0) + mob.food_drop
+                                self.player.inventory.add_item("food", mob.food_drop)
                                 self.passive_mobs.remove(mob)
             else:
                 self._mining_target = None
