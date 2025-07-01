@@ -1,0 +1,10 @@
+{
+  "dirt": {"category": "block", "block_id": 1, "group": "soil", "mining_time": 20},
+  "stone": {"category": "block", "block_id": 2, "group": "rock", "mining_time": 60},
+  "copper": {"category": "block", "block_id": 3, "group": "ore", "mining_time": 90},
+  "iron": {"category": "block", "block_id": 4, "group": "ore", "mining_time": 100},
+  "gold": {"category": "block", "block_id": 5, "group": "ore", "mining_time": 110},
+  "wood": {"category": "block", "block_id": 6, "group": "wood", "mining_time": 30},
+  "food": {"category": "food"},
+  "sword": {"category": "weapon", "damage": 10}
+}

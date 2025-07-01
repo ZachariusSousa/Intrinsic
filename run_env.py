@@ -35,7 +35,7 @@ def main():
                 keys[pygame.K_LEFT] or keys[pygame.K_a],   # left
                 keys[pygame.K_RIGHT] or keys[pygame.K_d],  # right
                 keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w],  # jump
-                keys[pygame.K_z],  # place block
+                keys[pygame.K_z],  # use item
                 keys[pygame.K_x],  # destroy block
             ], dtype=np.int8)
         else:
