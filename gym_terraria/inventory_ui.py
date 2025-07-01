@@ -82,7 +82,8 @@ class InventoryUI:
         # draw hotbar
         for idx, rect in enumerate(self.hotbar_rects):
             pygame.draw.rect(surface, (180, 180, 180), rect)
-            pygame.draw.rect(surface, (0, 0, 0), rect, 2)
+            border_color = (255, 255, 0) if idx == self.player.selected_slot else (0, 0, 0)
+            pygame.draw.rect(surface, border_color, rect, 2)
             item = self.player.hotbar[idx]
             if item:
                 text = self.font.render(item[:3], True, (0, 0, 0))
