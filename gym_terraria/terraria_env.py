@@ -5,22 +5,14 @@ from typing import Optional
 from gym import spaces
 
 from . import world
-from . import blocks
+from . import items
 from .player import Player
 from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 from .weather import WeatherSystem
 from .inventory_ui import InventoryUI
 
-# Mapping from item names in the hotbar to block IDs
-ITEM_TO_BLOCK = {
-    "dirt": world.DIRT,
-    "stone": world.STONE,
-    "copper": world.COPPER_ORE,
-    "iron": world.IRON_ORE,
-    "gold": world.GOLD_ORE,
-    "wood": world.WOOD,
-}
+
 
 
 class TerrariaEnv(gym.Env):
@@ -34,7 +26,7 @@ class TerrariaEnv(gym.Env):
         self.screen_height = 480
         self.tile_size = 32
 
-        # Actions: left, right, jump, place block, destroy block
+        # Actions: left, right, jump, use item, destroy block
         self.action_space = spaces.MultiBinary(5)
 
         high = np.array(
@@ -108,7 +100,7 @@ class TerrariaEnv(gym.Env):
         # advance the day/night and season cycle
         self.weather.step()
 
-        left, right, jump, place, destroy = action
+        left, right, jump, use, destroy = action
 
         keys = pygame.key.get_pressed()
 
@@ -196,14 +188,37 @@ class TerrariaEnv(gym.Env):
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
             selected = self.player.current_item()
             if (
-                place
-                and selected in ITEM_TO_BLOCK
+                use
+                and selected in items.ITEM_STATS
                 and self.player.inventory.get(selected, 0) > 0
-                and self.grid[target_y, target_x] == world.EMPTY
             ):
-                self.grid[target_y, target_x] = ITEM_TO_BLOCK[selected]
-                self.player.inventory[selected] -= 1
-                self._update_blocks()
+                info = items.ITEM_STATS[selected]
+                if info.category == "block" and self.grid[target_y, target_x] == world.EMPTY:
+                    self.grid[target_y, target_x] = info.block_id
+                    self.player.inventory[selected] -= 1
+                    self._update_blocks()
+                elif info.category == "food" and self.player.food < self.player.max_food:
+                    self.player.inventory[selected] -= 1
+                    self.player.food = self.player.max_food
+                elif info.category == "weapon":
+                    attack_rect = pygame.Rect(
+                        target_x * self.tile_size,
+                        target_y * self.tile_size,
+                        self.tile_size,
+                        self.tile_size,
+                    )
+                    dmg = info.damage if info.damage else 10
+                    for enemy in list(self.enemies):
+                        if enemy.rect.colliderect(attack_rect):
+                            enemy.health -= dmg
+                            if enemy.health <= 0:
+                                self.enemies.remove(enemy)
+                    for mob in list(self.passive_mobs):
+                        if mob.rect.colliderect(attack_rect):
+                            mob.health -= dmg
+                            if mob.health <= 0:
+                                self.player.inventory["food"] = self.player.inventory.get("food", 0) + mob.food_drop
+                                self.passive_mobs.remove(mob)
 
             if destroy:
                 block = self.grid[target_y, target_x]
@@ -212,30 +227,20 @@ class TerrariaEnv(gym.Env):
                     if target != self._mining_target:
                         self._mining_target = target
                         self._mining_progress = 0
-                    info = blocks.BLOCK_STATS.get(block)
+                    info = items.BLOCK_STATS.get(block)
                     required = info.mining_time if info else 1
                     self._mining_progress += 1
                     if self._mining_progress >= required:
                         self.grid[target_y, target_x] = world.EMPTY
-                        if block == world.DIRT:
-                            self.player.inventory["dirt"] += 1
-                        elif block == world.STONE:
-                            self.player.inventory["stone"] += 1
-                        elif block == world.COPPER_ORE:
-                            self.player.inventory["copper"] += 1
-                        elif block == world.IRON_ORE:
-                            self.player.inventory["iron"] += 1
-                        elif block == world.GOLD_ORE:
-                            self.player.inventory["gold"] += 1
-                        elif block == world.WOOD:
-                            self.player.inventory["wood"] += 1
+                        item_name = items.BLOCK_TO_ITEM.get(block)
+                        if item_name:
+                            self.player.inventory[item_name] = self.player.inventory.get(item_name, 0) + 1
                         self._update_blocks()
                         self._mining_target = None
                         self._mining_progress = 0
                 else:
                     self._mining_target = None
                     self._mining_progress = 0
-                    # attempt to attack enemy in front of player
                     attack_rect = pygame.Rect(
                         target_x * self.tile_size,
                         target_y * self.tile_size,
@@ -329,7 +334,7 @@ class TerrariaEnv(gym.Env):
         if self._mining_target is not None and self._mining_progress > 0:
             tx, ty = self._mining_target
             block = self.grid[ty, tx]
-            info = blocks.BLOCK_STATS.get(block)
+            info = items.BLOCK_STATS.get(block)
             required = info.mining_time if info else 1
             ratio = min(1.0, self._mining_progress / required)
             size = int(self.tile_size * ratio)
