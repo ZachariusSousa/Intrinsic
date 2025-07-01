@@ -9,9 +9,9 @@ from .player import Player
 from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies, update_projectiles
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 from .weather import WeatherSystem
+from . import inventory
 
-
-class TerrariaEnv(gym.Env):
+class IntrinsicEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
 
     metadata = {"render.modes": ["human"]}
@@ -75,6 +75,11 @@ class TerrariaEnv(gym.Env):
         self.enemy_spawn_chance = 0.001
         self.passive_spawn_chance = 0.005
 
+        # hotbar / inventory view state
+        self.show_inventory = False
+        self._prev_e = False
+        inventory.init_state(self)
+
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.player.reset(self.screen_height)
@@ -86,6 +91,9 @@ class TerrariaEnv(gym.Env):
         self.projectiles = []
         self._mining_target = None
         self._mining_progress = 0
+        self.show_inventory = False
+        self._prev_e = False
+        inventory.init_state(self)
         return self._get_obs(), {}
 
     def _get_obs(self):
@@ -99,8 +107,27 @@ class TerrariaEnv(gym.Env):
 
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_e]:
-            self.player.eat_food()
+        # toggle inventory view with 'e'
+        if keys[pygame.K_e] and not self._prev_e:
+            self.show_inventory = not self.show_inventory
+        self._prev_e = keys[pygame.K_e]
+
+        # hotbar selection with number keys 1-0
+        number_keys = [
+            pygame.K_1,
+            pygame.K_2,
+            pygame.K_3,
+            pygame.K_4,
+            pygame.K_5,
+            pygame.K_6,
+            pygame.K_7,
+            pygame.K_8,
+            pygame.K_9,
+            pygame.K_0,
+        ]
+        for idx, k in enumerate(number_keys):
+            if keys[k]:
+                self.player.selected_slot = idx
 
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
@@ -181,9 +208,15 @@ class TerrariaEnv(gym.Env):
         target_y = py + dy
 
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
-            if place and self.player.inventory.get("dirt", 0) > 0 and self.grid[target_y, target_x] == world.EMPTY:
-                self.grid[target_y, target_x] = world.DIRT
-                self.player.inventory["dirt"] -= 1
+            selected = self.player.selected_item
+            if (
+                place
+                and selected in inventory.HOTBAR_ITEM_TO_BLOCK
+                and self.player.inventory.get(selected, 0) > 0
+                and self.grid[target_y, target_x] == world.EMPTY
+            ):
+                self.grid[target_y, target_x] = inventory.HOTBAR_ITEM_TO_BLOCK[selected]
+                self.player.inventory[selected] -= 1
                 self._update_blocks()
 
             if destroy:
@@ -284,10 +317,12 @@ class TerrariaEnv(gym.Env):
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             self.clock = pygame.time.Clock()
             self.font = pygame.font.SysFont(None, 24)
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 self.close()
                 return
+        inventory.handle_events(self, events)
         # sky color depends on day/night cycle and season
         self.screen.fill(self.weather.get_sky_color())
         light = self.weather.get_light_intensity()
@@ -352,10 +387,7 @@ class TerrariaEnv(gym.Env):
 
         # draw inventory UI
         if self.font:
-            inv_text = " | ".join(f"{k}: {v}" for k, v in self.player.inventory.items())
-            text_surf = self.font.render(inv_text, True, (0, 0, 0))
-            self.screen.blit(text_surf, (10, 10))
-            # health bar
+            # health/food/oxygen bars
             health_ratio = self.player.health / self.player.max_health
             pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 30, 100, 10), 2)
@@ -365,6 +397,8 @@ class TerrariaEnv(gym.Env):
             oxygen_ratio = self.player.oxygen / self.player.max_oxygen
             pygame.draw.rect(self.screen, (0, 0, 255), pygame.Rect(10, 60, 100 * oxygen_ratio, 10))
             pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 60, 100, 10), 2)
+
+            inventory.draw(self)
 
         pygame.display.flip()
         self.clock.tick(60)
@@ -423,3 +457,4 @@ class TerrariaEnv(gym.Env):
             and np.random.random() < self.passive_spawn_chance
         ):
             self.passive_mobs.extend(spawn_random_passive_mobs(1, self))
+
