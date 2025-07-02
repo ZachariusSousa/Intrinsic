@@ -1,13 +1,13 @@
-"""Simple script to play the Terraria gym environment."""
+"""Simple script to play the gym environment."""
 
 import argparse
 import pygame
 import gym
-import gym_terraria
+import gym_intrinsic
 import numpy as np
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the Terraria gym environment")
+    parser = argparse.ArgumentParser(description="Run the gym environment")
     parser.add_argument(
         "--control",
         choices=["ai", "manual"],
@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
 
     pygame.init()
-    env = gym.make("Terraria-v0")
+    env = gym.make("Intrinsic-v0")
     obs, info = env.reset()
     done = False
  

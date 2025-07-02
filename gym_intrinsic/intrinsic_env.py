@@ -15,7 +15,7 @@ from .inventory_ui import InventoryUI
 
 
 
-class TerrariaEnv(gym.Env):
+class IntrinsicEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
 
     metadata = {"render.modes": ["human"]}

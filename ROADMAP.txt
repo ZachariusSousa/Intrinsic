@@ -1,4 +1,4 @@
-# Roadmap for Extending the Terraria Gym Environment
+# Roadmap for Extending the Gym Environment
 
 This document lists potential extensions to make the environment richer and more suitable for neurosymbolic AI experiments. The goal is to expose the agent to complex dynamics so it can discover rules and strategies for long-term survival.
 

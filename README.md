@@ -1,4 +1,4 @@
-# Intrinsic Terraria Gym Environment
+# Intrinsic Gym Environment
 
 This repository provides a minimal 2D platformer environment similar to Terraria, built with `pygame` and `gym`. The environment can be used for simple reinforcement learning experiments or as a template for more advanced games.
 
@@ -20,9 +20,9 @@ Import and register the environment, then create it using `gym.make`:
 
 ```python
 import gym
-import gym_terraria
+import gym_intrinsic
 
-env = gym.make("Terraria-v0")
+env = gym.make("Intrinsic-v0")
 obs, info = env.reset()
 
 for _ in range(1000):
@@ -43,7 +43,7 @@ Enemies and passive creatures now spawn randomly over time rather than only at t
 ## Quick Start
 
 Run the environment with the included script from the repository root. The
-environment is registered automatically when ``gym_terraria`` is imported:
+environment is registered automatically when ``gym_intrinsic`` is imported:
 
 ```bash
 python run_env.py              # AI-controlled random actions
