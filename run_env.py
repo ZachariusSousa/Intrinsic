@@ -31,12 +31,13 @@ def main():
 
         if args.control == "manual":
             keys = pygame.key.get_pressed()
+            mouse_buttons = pygame.mouse.get_pressed()
             action = np.array([
                 keys[pygame.K_LEFT] or keys[pygame.K_a],   # left
                 keys[pygame.K_RIGHT] or keys[pygame.K_d],  # right
                 keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w],  # jump
-                keys[pygame.K_z],  # use item
-                keys[pygame.K_x],  # destroy block
+                mouse_buttons[2],  # use item (right mouse button)
+                mouse_buttons[0],  # destroy block (left mouse button)
             ], dtype=np.int8)
         else:
             action = env.action_space.sample()
