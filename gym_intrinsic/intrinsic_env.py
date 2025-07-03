@@ -77,7 +77,7 @@ class IntrinsicEnv(gym.Env):
         # spawning configuration
         self.max_enemies = 5
         self.max_passive_mobs = 5
-        self.enemy_spawn_chance = 0.001
+        self.enemy_spawn_chance = 0.05
         self.passive_spawn_chance = 0.05
 
     def reset(self, *, seed=None, options=None):
@@ -275,8 +275,8 @@ class IntrinsicEnv(gym.Env):
         self._spawn_mobs_randomly()
         # update mobs, enemies and projectiles
         update_passive_mobs(self.passive_mobs, self)
-        update_enemies(self.enemies, self.player, self.projectiles)
-        update_projectiles(self.projectiles, self.player, world_w)
+        update_enemies(self.enemies, self.player, self.projectiles, self)
+        update_projectiles(self.projectiles, self.player, world_w, self)
 
         done = False
         if self.player.health <= 0:
