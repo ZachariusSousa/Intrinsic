@@ -9,16 +9,22 @@ from . import pathfinding
 
 @dataclass
 class Enemy:
+    # Body of the enemy mob
     rect: pygame.Rect
     health: int
+    # Colour of the enemy mob
     color: Tuple[int, int, int]
     speed: int
+    # List of vectors for pathfinfinding
     path: Optional[List[Tuple[int, int]]] = None
     path_index: int = 0
     vel_y: float = 0.0
+    # How long we've been using this pathfinding calc
     last_path_time: int = 0
+    # Last vector the player was
     last_player_tile: Optional[Tuple[int, int]] = None
 
+    # Intialize enemies as none
     def is_melee(self) -> bool:
         return False
 
@@ -26,6 +32,7 @@ class Enemy:
         return False
 
 
+# Data classes to intialize type of enemy
 @dataclass
 class MeleeEnemy(Enemy):
     def __post_init__(self):
@@ -49,7 +56,7 @@ class RangedEnemy(Enemy):
     def is_ranged(self) -> bool:
         return True
 
-
+# Class for ranged enemy proejctiles
 @dataclass
 class Projectile:
     rect: pygame.Rect
@@ -57,12 +64,19 @@ class Projectile:
 
 
 def spawn_random_enemies(num: int, env) -> List[Enemy]:
+    # List of all enemies
     enemies: List[Enemy] = []
+    # Iterate as many enemies to spawn
     for _ in range(num):
+        # Random choice for type of enemy
         etype = np.random.choice(["melee", "ranged"])
+        
+        # Find vector to spawn at
         ex = np.random.randint(0, env.grid_width)
         ey = env._find_spawn_y(ex)
         rect = pygame.Rect(ex * env.tile_size, ey, env.tile_size, env.tile_size)
+        
+        # Add spawned enemy to list of enemies
         if etype == "melee":
             enemies.append(MeleeEnemy(rect=rect, health=0, color=(0, 0, 0), speed=0))  # values set in __post_init__
         else:
@@ -76,30 +90,42 @@ def update_enemies(enemies: List[Enemy], player: Player, projectiles: List[Proje
     gravity = 0.8
     max_fall_speed = 10
 
+    # checks if tile is air (0) or water (8)
     def is_solid(x, y):
         return 0 <= x < env.grid_width and 0 <= y < env.grid_height and env.grid[y, x] not in (0, 8)
 
+    # get current ticks since game started
     current_time = pygame.time.get_ticks()
+    # position of tile player is standing on
     player_tile = (player.rect.centerx // tile_size, player.rect.bottom // tile_size)
 
+    # logic loop for each enemies update
     for enemy in enemies:
         enemy_tile = (enemy.rect.centerx // tile_size, enemy.rect.bottom // tile_size)
 
+        # logic for deciding whether enemy should repath
         should_repath = (
+            # no path
             enemy.path is None or
+            # done path
             enemy.path_index >= len(enemy.path) or
-            current_time - enemy.last_path_time > 1500 or
+            # time since last path is greater than repathing time
+            current_time - enemy.last_path_time > env.repathing_time or
+            # player tile has changed since last path
             enemy.last_player_tile != player_tile
         )
 
         if should_repath:
+            # recalculates new path
             path = pathfinding.astar(env, enemy_tile, player_tile)
             if path:
+                # updates path variables
                 enemy.path = path
                 enemy.path_index = 0
                 enemy.last_path_time = current_time
                 enemy.last_player_tile = player_tile
 
+        # actions to be taken depending on next step in path
         if enemy.path and enemy.path_index < len(enemy.path):
             target = enemy.path[enemy.path_index]
             target_px = target[0] * tile_size + tile_size // 2
@@ -130,7 +156,7 @@ def update_enemies(enemies: List[Enemy], player: Player, projectiles: List[Proje
             ):
                 enemy.vel_y = -6
 
-        # Gravity
+        # Gravity calculations
         enemy.vel_y = min(enemy.vel_y + gravity, max_fall_speed)
         enemy.rect.y += int(enemy.vel_y)
 
@@ -140,12 +166,14 @@ def update_enemies(enemies: List[Enemy], player: Player, projectiles: List[Proje
         top = enemy.rect.top // tile_size
         bottom = (enemy.rect.bottom - 1) // tile_size
 
+        # checks if they'll hit something going down
         if enemy.vel_y > 0:
             for tx in range(left, right + 1):
                 if is_solid(tx, bottom):
                     enemy.rect.bottom = bottom * tile_size
                     enemy.vel_y = 0
                     break
+         # checks if they'll hit something going up
         elif enemy.vel_y < 0:
             for tx in range(left, right + 1):
                 if is_solid(tx, top):
@@ -153,10 +181,11 @@ def update_enemies(enemies: List[Enemy], player: Player, projectiles: List[Proje
                     enemy.vel_y = 0
                     break
 
-        # Attacks
+        # Melee attack logic
         if enemy.is_melee() and enemy.rect.colliderect(player.rect):
             player.health -= 1
 
+        # Ranged attack logic
         elif enemy.is_ranged():
             if enemy.cooldown > 0:
                 enemy.cooldown -= 1
@@ -173,6 +202,7 @@ def update_enemies(enemies: List[Enemy], player: Player, projectiles: List[Proje
                 enemy.cooldown = 90
 
 
+# moves projectiles and checks for collisions
 def update_projectiles(projectiles: List[Projectile], player: Player, world_w: int, env):
     tile_size = env.tile_size
 

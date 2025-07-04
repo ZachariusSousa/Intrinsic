@@ -81,6 +81,9 @@ class IntrinsicEnv(gym.Env):
         self.max_passive_mobs = 5
         self.enemy_spawn_chance = 0.001
         self.passive_spawn_chance = 0.01
+        
+        # pathfinding
+        self.repathing_time = 1500
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
