@@ -13,6 +13,7 @@ from .weather import WeatherSystem
 from .inventory_ui import InventoryUI
 from . import player_actions
 from . import env_logic
+from . import env_render
 
 
 class IntrinsicEnv(gym.Env):
@@ -126,97 +127,8 @@ class IntrinsicEnv(gym.Env):
         ) and self.player.velocity[1] >= 0
 
     def render(self):
-        if self.screen is None:
-            pygame.init()
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-            self.clock = pygame.time.Clock()
-            self.font = pygame.font.SysFont(None, 24)
-            self.inventory_ui = InventoryUI(self.player, self.font)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.close()
-                return
-        # sky color depends on day/night cycle and season
-        self.screen.fill(self.weather.get_sky_color())
-        light = self.weather.get_light_intensity()
-        for rect, block in self.blocks:
-            screen_rect = rect.move(-self.camera_x, -self.camera_y)
-            if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
-                continue
-            color = world.COLOR_MAP.get(block, (255, 255, 255))
-            color = tuple(int(c * light) for c in color)
-            pygame.draw.rect(self.screen, color, screen_rect)
-        for rect in self.water_blocks:
-            screen_rect = rect.move(-self.camera_x, -self.camera_y)
-            if screen_rect.bottom < 0 or screen_rect.top > self.screen_height:
-                continue
-            water_color = tuple(int(c * light) for c in world.COLOR_MAP[world.WATER])
-            pygame.draw.rect(self.screen, water_color, screen_rect)
+        env_render.render_environment(self)
 
-        # draw mining progress indicator
-        if self._mining_target is not None and self._mining_progress > 0:
-            tx, ty = self._mining_target
-            block = self.grid[ty, tx]
-            info = items.BLOCK_STATS.get(block)
-            required = info.mining_time if info else 1
-            ratio = min(1.0, self._mining_progress / required)
-            size = int(self.tile_size * ratio)
-            if size > 0:
-                offset = (self.tile_size - size) // 2
-                sx = tx * self.tile_size - self.camera_x + offset
-                sy = ty * self.tile_size - self.camera_y + offset
-                overlay = pygame.Surface((size, size), pygame.SRCALPHA)
-                overlay.fill((255, 255, 255, 120))
-                self.screen.blit(overlay, (sx, sy))
-        player_color = tuple(int(c * light) for c in (255, 0, 0))
-        pygame.draw.rect(self.screen, player_color, self.player.rect.move(-self.camera_x, -self.camera_y))
-
-        # draw enemies
-        for enemy in self.enemies:
-            screen_rect = enemy.rect.move(-self.camera_x, -self.camera_y)
-            color = tuple(int(c * light) for c in enemy.color)
-            pygame.draw.rect(self.screen, color, screen_rect)
-
-        # draw passive mobs
-        for mob in self.passive_mobs:
-            screen_rect = mob.rect.move(-self.camera_x, -self.camera_y)
-            color = tuple(int(c * light) for c in mob.color)
-            pygame.draw.rect(self.screen, color, screen_rect)
-
-        # draw projectiles
-        for proj in self.projectiles:
-            screen_rect = proj.rect.move(-self.camera_x, -self.camera_y)
-            proj_color = tuple(int(c * light) for c in (0, 0, 0))
-            pygame.draw.rect(self.screen, proj_color, screen_rect)
-
-        # draw facing indicator
-        # draw facing indicator
-        fx = self.player.rect.centerx + self.player.facing[0] * self.tile_size // 2
-        fy = self.player.rect.centery + self.player.facing[1] * self.tile_size // 2
-
-        pygame.draw.rect(
-            self.screen,
-            tuple(int(c * light) for c in (255, 255, 0)),
-            pygame.Rect(fx - 4 - self.camera_x, fy - self.camera_y - 4, 8, 8),
-        )
-
-        # draw inventory UI
-        if self.font:
-            if self.inventory_ui:
-                self.inventory_ui.draw(self.screen)
-            # health bar
-            health_ratio = self.player.health / self.player.max_health
-            pygame.draw.rect(self.screen, (255, 0, 0), pygame.Rect(10, 30, 100 * health_ratio, 10))
-            pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 30, 100, 10), 2)
-            food_ratio = self.player.food / self.player.max_food
-            pygame.draw.rect(self.screen, (0, 128, 0), pygame.Rect(10, 45, 100 * food_ratio, 10))
-            pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 45, 100, 10), 2)
-            oxygen_ratio = self.player.oxygen / self.player.max_oxygen
-            pygame.draw.rect(self.screen, (0, 0, 255), pygame.Rect(10, 60, 100 * oxygen_ratio, 10))
-            pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(10, 60, 100, 10), 2)
-
-        pygame.display.flip()
-        self.clock.tick(60)
         
     def handle_events(self, events) -> None:
         """Forward pygame events to UI (e.g., inventory)."""

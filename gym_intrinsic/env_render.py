@@ -1,5 +1,7 @@
 import pygame
 from . import world
+from .inventory_ui import InventoryUI
+from . import items
 
 
 def render_environment(env):
@@ -8,7 +10,9 @@ def render_environment(env):
         env.screen = pygame.display.set_mode((env.screen_width, env.screen_height))
         env.clock = pygame.time.Clock()
         env.font = pygame.font.SysFont(None, 24)
-        env.inventory_ui = env.inventory_ui or env.inventory_ui.__class__(env.player, env.font)
+        if env.inventory_ui is None:
+            env.inventory_ui = InventoryUI(env.player, env.font)
+
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -51,7 +55,7 @@ def draw_mining_indicator(env):
     if env._mining_target is not None and env._mining_progress > 0:
         tx, ty = env._mining_target
         block = env.grid[ty, tx]
-        info = env.items.BLOCK_STATS.get(block)
+        info = items.BLOCK_STATS.get(block)
         required = info.mining_time if info else 1
         ratio = min(1.0, env._mining_progress / required)
         size = int(env.tile_size * ratio)
