@@ -64,3 +64,50 @@ class Player:
             grid[below_y, left_x] != world.EMPTY
             or grid[below_y, right_x] != world.EMPTY
         ) and vel_y >= 0
+
+    def apply_gravity(self, gravity: float) -> None:
+        self.velocity[1] += gravity
+
+    def move_and_collide(self, blocks) -> None:
+        self.rect.x += int(self.velocity[0])
+        for rect, _ in blocks:
+            if self.rect.colliderect(rect):
+                if self.velocity[0] > 0:
+                    self.rect.right = rect.left
+                elif self.velocity[0] < 0:
+                    self.rect.left = rect.right
+                self.velocity[0] = 0
+
+        self.rect.y += int(self.velocity[1])
+        for rect, _ in blocks:
+            if self.rect.colliderect(rect):
+                if self.velocity[1] > 0:
+                    self.rect.bottom = rect.top
+                elif self.velocity[1] < 0:
+                    self.rect.top = rect.bottom
+                self.velocity[1] = 0
+
+    def handle_oxygen(self, in_water: bool) -> None:
+        if in_water:
+            self.oxygen = max(0, self.oxygen - 1)
+            if self.oxygen == 0:
+                self.health -= 0.5
+        else:
+            self.oxygen = min(self.max_oxygen, self.oxygen + 2)
+
+    def consume_food(self) -> None:
+        if self.food > 0:
+            self.food = max(0, self.food - 0.05)
+        if self.food <= 0:
+            self.health -= 0.1
+
+    def adjust_facing_from_keys(self, keys) -> list[int]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            return [-1, 0]
+        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            return [1, 0]
+        elif keys[pygame.K_UP] or keys[pygame.K_w]:
+            return [0, -1]
+        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            return [0, 1]
+        return self.facing

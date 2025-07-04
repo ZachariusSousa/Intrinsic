@@ -108,9 +108,10 @@ class IntrinsicEnv(gym.Env):
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
 
         if (left or right or jump) and self.player.food > 0:
-            self.player.food = max(0, self.player.food - 0.05)
+            self.player.consume_food()
         if self.player.food <= 0:
             self.player.health -= 0.1
+
 
         # update movement
         if left and not right:
@@ -121,14 +122,7 @@ class IntrinsicEnv(gym.Env):
             self.player.velocity[0] = 0
 
         # update facing based on keys (arrow keys or WASD)
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.facing = [-1, 0]
-        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.facing = [1, 0]
-        elif keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.facing = [0, -1]
-        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.facing = [0, 1]
+        self.facing = self.player.adjust_facing_from_keys(keys)
 
         # jump (allow swimming upwards)
         if jump and (self._on_ground() or self.in_water):
@@ -136,26 +130,13 @@ class IntrinsicEnv(gym.Env):
 
         # apply gravity (reduced in water)
         gravity = 0.2 if self.in_water else self.gravity
-        self.player.velocity[1] += gravity
+        self.player.apply_gravity(gravity)
+
+
 
         # update position and handle collisions with blocks
-        self.player.rect.x += int(self.player.velocity[0])
-        for rect, _ in self.blocks:
-            if self.player.rect.colliderect(rect):
-                if self.player.velocity[0] > 0:
-                    self.player.rect.right = rect.left
-                elif self.player.velocity[0] < 0:
-                    self.player.rect.left = rect.right
-                self.player.velocity[0] = 0
+        self.player.move_and_collide(self.blocks)
 
-        self.player.rect.y += int(self.player.velocity[1])
-        for rect, _ in self.blocks:
-            if self.player.rect.colliderect(rect):
-                if self.player.velocity[1] > 0:
-                    self.player.rect.bottom = rect.top
-                elif self.player.velocity[1] < 0:
-                    self.player.rect.top = rect.bottom
-                self.player.velocity[1] = 0
 
         # world boundaries
         world_w = self.grid_width * self.tile_size
@@ -166,12 +147,8 @@ class IntrinsicEnv(gym.Env):
 
         # update water status after movement
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
-        if self.in_water:
-            self.player.oxygen = max(0, self.player.oxygen - 1)
-            if self.player.oxygen == 0:
-                self.player.health -= 0.5
-        else:
-            self.player.oxygen = min(self.player.max_oxygen, self.player.oxygen + 2)
+        self.player.handle_oxygen(self.in_water)
+
 
         # update camera to follow player
         self.camera_y = int(self.player.rect.centery - self.screen_height // 2)
