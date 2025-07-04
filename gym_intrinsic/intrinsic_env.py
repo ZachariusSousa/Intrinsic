@@ -44,9 +44,10 @@ class IntrinsicEnv(gym.Env):
 
         # World dimensions may extend beyond the screen
         self.grid_width = self.screen_width // self.tile_size
-        self.grid_height = (self.screen_height // self.tile_size) * 2
+        self.grid_height = (self.screen_height // self.tile_size) * 6
 
-        self.grid = world.generate_world(self.grid_width, self.grid_height)
+        self.world_x_offset = 0  # total tiles offset from world origin (left side)
+        self.grid = world.generate_world(self.grid_width, self.grid_height, world_x_offset=self.world_x_offset)
         self._update_blocks()
         self.in_water = False
 
@@ -77,8 +78,8 @@ class IntrinsicEnv(gym.Env):
         # spawning configuration
         self.max_enemies = 5
         self.max_passive_mobs = 5
-        self.enemy_spawn_chance = 0.05
-        self.passive_spawn_chance = 0.05
+        self.enemy_spawn_chance = 0.001
+        self.passive_spawn_chance = 0.01
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -160,7 +161,8 @@ class IntrinsicEnv(gym.Env):
         world_w = self.grid_width * self.tile_size
         world_h = self.grid_height * self.tile_size
         self.player.rect.x = max(0, min(self.player.rect.x, world_w - self.player.rect.width))
-        self.player.rect.y = max(0, min(self.player.rect.y, world_h - self.player.rect.height))
+        self.player.rect.y = min(self.player.rect.y, world_h - self.player.rect.height)
+
 
         # update water status after movement
         self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
@@ -173,7 +175,9 @@ class IntrinsicEnv(gym.Env):
 
         # update camera to follow player
         self.camera_y = int(self.player.rect.centery - self.screen_height // 2)
-        self.camera_y = max(0, min(self.camera_y, world_h - self.screen_height))
+        # Only clamp the bottom, not the top
+        self.camera_y = min(self.camera_y, world_h - self.screen_height)
+
 
         # block placement and destruction
         px = self.player.rect.centerx // self.tile_size
@@ -409,28 +413,33 @@ class IntrinsicEnv(gym.Env):
             self.screen = None
 
     def _extend_world_right(self, extra_cols):
-        """Extend the world grid to the right by generating additional columns."""
-        new_grid = world.generate_world(extra_cols, self.grid_height)
+        """Extend world to the right using proper x-offset for biome continuity."""
+        new_offset = self.world_x_offset + self.grid_width
+        new_grid = world.generate_world(extra_cols, self.grid_height, world_x_offset=new_offset)
         self.grid = np.concatenate([self.grid, new_grid], axis=1)
         self.grid_width += extra_cols
         self._update_blocks()
 
+
     def _extend_world_left(self, extra_cols):
-        """Extend the world grid to the left by generating additional columns."""
-        new_grid = world.generate_world(extra_cols, self.grid_height)
+        """Extend world to the left and adjust global offset."""
+        new_offset = self.world_x_offset - extra_cols
+        new_grid = world.generate_world(extra_cols, self.grid_height, world_x_offset=new_offset)
         self.grid = np.concatenate([new_grid, self.grid], axis=1)
         self.grid_width += extra_cols
-        self.player.rect.x += extra_cols * self.tile_size
-        # Shift all enemies to the right
+        self.world_x_offset -= extra_cols  # shift global position left
+
+        shift_px = extra_cols * self.tile_size
+        self.player.rect.x += shift_px
         for enemy in self.enemies:
-            enemy.rect.x += extra_cols * self.tile_size
-        # Shift all passive mobs to the right
+            enemy.rect.x += shift_px
         for mob in self.passive_mobs:
-            mob.rect.x += extra_cols * self.tile_size
-        # Shift all projectiles to the right
+            mob.rect.x += shift_px
         for proj in self.projectiles:
-            proj.rect.x += extra_cols * self.tile_size
+            proj.rect.x += shift_px
+
         self._update_blocks()
+
 
     def _update_blocks(self):
         """Recreate block rectangles from the grid for collision and rendering."""
