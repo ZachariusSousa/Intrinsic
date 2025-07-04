@@ -12,8 +12,7 @@ from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_
 from .weather import WeatherSystem
 from .inventory_ui import InventoryUI
 from . import player_actions
-
-
+from . import env_logic
 
 
 class IntrinsicEnv(gym.Env):
@@ -99,137 +98,18 @@ class IntrinsicEnv(gym.Env):
         return np.array([self.player.rect.x, self.player.rect.y, self.player.velocity[0], self.player.velocity[1]], dtype=np.float32)
 
     def step(self, action):
-        # advance the day/night and season cycle
         self.weather.step()
+        env_logic.handle_input(self, action)
+        env_logic.handle_physics(self)
+        env_logic.handle_actions(self, action)
+        env_logic.update_camera(self)
+        env_logic.maybe_extend_world(self)
+        env_logic.spawn_and_update_mobs(self)
 
-        left, right, jump, use, destroy = action
-
-        keys = pygame.key.get_pressed()
-
-        self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
-
-        if (left or right or jump) and self.player.food > 0:
-            self.player.consume_food()
-        if self.player.food <= 0:
-            self.player.health -= 0.1
-
-
-        # update movement
-        if left and not right:
-            self.player.velocity[0] = -self.speed
-        elif right and not left:
-            self.player.velocity[0] = self.speed
-        else:
-            self.player.velocity[0] = 0
-
-        # update facing based on keys (arrow keys or WASD)
-        self.facing = self.player.adjust_facing_from_keys(keys)
-
-        # jump (allow swimming upwards)
-        if jump and (self._on_ground() or self.in_water):
-            self.player.velocity[1] = self.jump_velocity if not self.in_water else -5
-
-        # apply gravity (reduced in water)
-        gravity = 0.2 if self.in_water else self.gravity
-        self.player.apply_gravity(gravity)
-
-
-
-        # update position and handle collisions with blocks
-        self.player.move_and_collide(self.blocks)
-
-
-        # world boundaries
-        world_w = self.grid_width * self.tile_size
-        world_h = self.grid_height * self.tile_size
-        self.player.rect.x = max(0, min(self.player.rect.x, world_w - self.player.rect.width))
-        self.player.rect.y = min(self.player.rect.y, world_h - self.player.rect.height)
-
-
-        # update water status after movement
-        self.in_water = any(self.player.rect.colliderect(r) for r in self.water_blocks)
-        self.player.handle_oxygen(self.in_water)
-
-
-        # update camera to follow player
-        self.camera_y = int(self.player.rect.centery - self.screen_height // 2)
-        # Only clamp the bottom, not the top
-        self.camera_y = min(self.camera_y, world_h - self.screen_height)
-
-
-        # block placement and destruction
-        px = self.player.rect.centerx // self.tile_size
-        py = self.player.rect.centery // self.tile_size
-        dx, dy = self.facing
-        target_x = px + dx
-        target_y = py + dy
-
-        if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
-            selected = self.player.current_item()
-            if use:
-                dmg = player_actions.place_block(
-                    self.player, self.grid, target_x, target_y, self._update_blocks
-                )
-                if dmg:
-                    attack_rect = pygame.Rect(
-                        target_x * self.tile_size,
-                        target_y * self.tile_size,
-                        self.tile_size,
-                        self.tile_size,
-                    )
-                    player_actions.attack_entities(attack_rect, self.enemies, self.passive_mobs, self.player, dmg)
-
-
-            if destroy:
-                block = self.grid[target_y, target_x]
-                target = (target_x, target_y)
-                if block != world.EMPTY:
-                    if target != self._mining_target:
-                        self._mining_target = target
-                        self._mining_progress = 0
-                    self._mining_target, self._mining_progress = player_actions.mine_block(
-                        self.grid, target, self._mining_progress, self.player, self._update_blocks
-                    )
-                else:
-                    self._mining_target = None
-                    self._mining_progress = 0
-                    attack_rect = pygame.Rect(
-                        target_x * self.tile_size,
-                        target_y * self.tile_size,
-                        self.tile_size,
-                        self.tile_size,
-                    )
-                    player_actions.attack_entities(attack_rect, self.enemies, self.passive_mobs, self.player, 10)
-
-            else:
-                self._mining_target = None
-                self._mining_progress = 0
-
-        # extend world horizontally when approaching edges
-        threshold = self.tile_size * 5
-        if self.player.rect.right > self.grid_width * self.tile_size - threshold:
-            self._extend_world_right(self.grid_width // 2)
-        if self.player.rect.left < threshold:
-            self._extend_world_left(self.grid_width // 2)
-
-        # update camera to follow player horizontally
-        world_w = self.grid_width * self.tile_size
-        world_h = self.grid_height * self.tile_size
-        self.camera_x = int(self.player.rect.centerx - self.screen_width // 2)
-        self.camera_x = max(0, min(self.camera_x, world_w - self.screen_width))
-        # occasionally spawn new mobs
-        self._spawn_mobs_randomly()
-        # update mobs, enemies and projectiles
-        update_passive_mobs(self.passive_mobs, self)
-        update_enemies(self.enemies, self.player, self.projectiles, self)
-        update_projectiles(self.projectiles, self.player, world_w, self)
-
-        done = False
-        if self.player.health <= 0:
-            done = True
+        done = self.player.health <= 0
         reward = 0.0
-
         return self._get_obs(), reward, done, False, {}
+
 
     def _on_ground(self):
         """Check if the player stands on any solid block."""
@@ -310,8 +190,10 @@ class IntrinsicEnv(gym.Env):
             pygame.draw.rect(self.screen, proj_color, screen_rect)
 
         # draw facing indicator
-        fx = self.player.rect.centerx + self.facing[0] * self.tile_size // 2
-        fy = self.player.rect.centery + self.facing[1] * self.tile_size // 2
+        # draw facing indicator
+        fx = self.player.rect.centerx + self.player.facing[0] * self.tile_size // 2
+        fy = self.player.rect.centery + self.player.facing[1] * self.tile_size // 2
+
         pygame.draw.rect(
             self.screen,
             tuple(int(c * light) for c in (255, 255, 0)),
