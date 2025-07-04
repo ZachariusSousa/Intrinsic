@@ -103,11 +103,12 @@ class Player:
 
     def adjust_facing_from_keys(self, keys) -> list[int]:
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            return [-1, 0]
+            self.facing = [-1, 0]
         elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            return [1, 0]
+            self.facing = [1, 0]
         elif keys[pygame.K_UP] or keys[pygame.K_w]:
-            return [0, -1]
+            self.facing = [0, -1]
         elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            return [0, 1]
+            self.facing = [0, 1]
         return self.facing
+

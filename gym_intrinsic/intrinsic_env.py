@@ -11,6 +11,7 @@ from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies,
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 from .weather import WeatherSystem
 from .inventory_ui import InventoryUI
+from . import player_actions
 
 
 
@@ -165,38 +166,19 @@ class IntrinsicEnv(gym.Env):
 
         if 0 <= target_x < self.grid_width and 0 <= target_y < self.grid_height:
             selected = self.player.current_item()
-            if (
-                use
-                and selected in items.ITEM_STATS
-                and self.player.inventory.get(selected, 0) > 0
-            ):
-                info = items.ITEM_STATS[selected]
-                if info.category == "block" and self.grid[target_y, target_x] == world.EMPTY:
-                    self.grid[target_y, target_x] = info.block_id
-                    self.player.inventory[selected] -= 1
-                    self._update_blocks()
-                elif info.category == "food" and self.player.food < self.player.max_food:
-                    self.player.inventory[selected] -= 1
-                    self.player.food = self.player.max_food
-                elif info.category == "weapon":
+            if use:
+                dmg = player_actions.place_block(
+                    self.player, self.grid, target_x, target_y, self._update_blocks
+                )
+                if dmg:
                     attack_rect = pygame.Rect(
                         target_x * self.tile_size,
                         target_y * self.tile_size,
                         self.tile_size,
                         self.tile_size,
                     )
-                    dmg = info.damage if info.damage else 10
-                    for enemy in list(self.enemies):
-                        if enemy.rect.colliderect(attack_rect):
-                            enemy.health -= dmg
-                            if enemy.health <= 0:
-                                self.enemies.remove(enemy)
-                    for mob in list(self.passive_mobs):
-                        if mob.rect.colliderect(attack_rect):
-                            mob.health -= dmg
-                            if mob.health <= 0:
-                                self.player.inventory.add_item("food", mob.food_drop)
-                                self.passive_mobs.remove(mob)
+                    player_actions.attack_entities(attack_rect, self.enemies, self.passive_mobs, self.player, dmg)
+
 
             if destroy:
                 block = self.grid[target_y, target_x]
@@ -205,17 +187,9 @@ class IntrinsicEnv(gym.Env):
                     if target != self._mining_target:
                         self._mining_target = target
                         self._mining_progress = 0
-                    info = items.BLOCK_STATS.get(block)
-                    required = info.mining_time if info else 1
-                    self._mining_progress += 1
-                    if self._mining_progress >= required:
-                        self.grid[target_y, target_x] = world.EMPTY
-                        item_name = items.BLOCK_TO_ITEM.get(block)
-                        if item_name:
-                            self.player.inventory.add_item(item_name)
-                        self._update_blocks()
-                        self._mining_target = None
-                        self._mining_progress = 0
+                    self._mining_target, self._mining_progress = player_actions.mine_block(
+                        self.grid, target, self._mining_progress, self.player, self._update_blocks
+                    )
                 else:
                     self._mining_target = None
                     self._mining_progress = 0
@@ -225,17 +199,8 @@ class IntrinsicEnv(gym.Env):
                         self.tile_size,
                         self.tile_size,
                     )
-                    for enemy in list(self.enemies):
-                        if enemy.rect.colliderect(attack_rect):
-                            enemy.health -= 10
-                            if enemy.health <= 0:
-                                self.enemies.remove(enemy)
-                    for mob in list(self.passive_mobs):
-                        if mob.rect.colliderect(attack_rect):
-                            mob.health -= 10
-                            if mob.health <= 0:
-                                self.player.inventory.add_item("food", mob.food_drop)
-                                self.passive_mobs.remove(mob)
+                    player_actions.attack_entities(attack_rect, self.enemies, self.passive_mobs, self.player, 10)
+
             else:
                 self._mining_target = None
                 self._mining_progress = 0
