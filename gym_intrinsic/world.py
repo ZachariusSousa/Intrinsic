@@ -22,7 +22,7 @@ BIOMES = ["forest", "plains", "desert", "ocean", "mountains"]
 BIOME_SEGMENT   = 64           # columns per biome (~10 screens at 32-px tiles)
 COARSE_STEP     = 128           # columns between elevation anchor points
 SEA_LEVEL_FRACT = 0.30          # % of world-height where water surface sits
-BLEND_WIDTH   = 12          # try 16-48; larger = softer transitions
+BLEND_WIDTH   = 16         # try 16-48; larger = softer transitions
 BLEND_NOISE   = 0.35        # 0–1 → roughness of patchy blocks in the band
 
 # ---------------------------------------------------------------------------
@@ -51,30 +51,33 @@ def _lerp(a: float, b: float, t: float) -> float:
 def _biome_for_x(global_x: int) -> str:
     """Biome chosen per BIOME_SEGMENT; now depends on WORLD_SEED too."""
     segment = global_x // BIOME_SEGMENT
-    # OLD: return BIOMES[_hash32(segment * 97) % len(BIOMES)]
     return BIOMES[_hash32(segment * 97 + WORLD_SEED) % len(BIOMES)]
+
 
 def _biome_blend(global_x: int) -> tuple[str, str, float]:
     """
-    Returns (primary_biome, neighbour_biome, t)  where  t∈[0,1].
-    When t≈0  you are in the heart of the primary biome.
-    When t≈1  you are inside the neighbour biome.
+    Returns (left_biome, right_biome, t) where
+        • t ∈ [0,1] spans the *entire* 2·BLEND_WIDTH zone around a boundary
+        • outside that zone: left == right and t == 0
+    This eliminates the double-ramp “V” shape.
     """
-    segment      = global_x // BIOME_SEGMENT
-    pos_in_seg   = global_x %  BIOME_SEGMENT
+    seg        = global_x // BIOME_SEGMENT      
+    pos        = global_x %  BIOME_SEGMENT     
+    b_left     = _biome_for_x((seg - 1) * BIOME_SEGMENT)
+    b_mid      = _biome_for_x(seg       * BIOME_SEGMENT)
+    b_right    = _biome_for_x((seg + 1) * BIOME_SEGMENT)
 
-    if pos_in_seg < BLEND_WIDTH:                       # left edge → blend with previous segment
-        neighbour_seg = segment - 1
-        t             = 1.0 - pos_in_seg / BLEND_WIDTH
-    elif pos_in_seg > BIOME_SEGMENT - BLEND_WIDTH:     # right edge → blend with next segment
-        neighbour_seg = segment + 1
-        t             = (pos_in_seg - (BIOME_SEGMENT - BLEND_WIDTH)) / BLEND_WIDTH
-    else:                                              # deep inside the segment
-        return _biome_for_x(global_x), _biome_for_x(global_x), 0.0
+    if pos >= BIOME_SEGMENT - BLEND_WIDTH:
+        t = (pos - (BIOME_SEGMENT - BLEND_WIDTH)) / (2 * BLEND_WIDTH)  
+        return b_mid, b_right, t
 
-    primary   = _biome_for_x(global_x)
-    neighbour = _biome_for_x((neighbour_seg) * BIOME_SEGMENT)
-    return primary, neighbour, t
+    if pos < BLEND_WIDTH:
+        t = (pos + BLEND_WIDTH) / (2 * BLEND_WIDTH)        
+        return b_left, b_mid, t
+
+    return b_mid, b_mid, 0.0
+
+
 
 
 def set_world_seed(seed: int | None = None):
@@ -111,7 +114,6 @@ def generate_world(
     grid = np.zeros((height, width), dtype=np.int8)
     sea_level = int(height * SEA_LEVEL_FRACT)
 
-    # Pre-compute anchor elevations for the whole slice
     min_elev, max_elev = int(height * 0.35), int(height * 0.55)
 
     # Generate every column
@@ -119,47 +121,42 @@ def generate_world(
         global_x      = world_x_offset + local_x
         biome, biome2, blend_t = _biome_blend(global_x)
 
-        # --- inside the for-column loop, just after you compute `biome, biome2, blend_t`
-        # PRECOMPUTE elevation anchors for *all* biomes  ────────────────
-        anchor_idx0 = global_x // COARSE_STEP
-        anchor_idx1 = anchor_idx0 + 1
-        anchor_x0   = anchor_idx0 * COARSE_STEP
-        t_elev      = (global_x - anchor_x0) / COARSE_STEP
+        base_segment = None
+        if biome == _biome_for_x(global_x):
+            base_segment = global_x // BIOME_SEGMENT
+        else:
+            base_segment = (global_x // BIOME_SEGMENT) - 1
+
+        base_origin_x = base_segment * BIOME_SEGMENT
+        anchor_idx0   = (base_origin_x + (global_x - base_origin_x)) // COARSE_STEP
+        anchor_idx1   = anchor_idx0 + 1
+        anchor_x0     = anchor_idx0 * COARSE_STEP
+        t_elev        = (global_x - anchor_x0) / COARSE_STEP
+
 
         elev0 = _anchor_elevation(anchor_idx0, min_elev, max_elev)
         elev1 = _anchor_elevation(anchor_idx1, min_elev, max_elev)
-        # ───────────────────────────────────────────────────────────────
-
-        # ----- Elevation ------------------------------------------------
-        if biome == "ocean":
-            surface_y = sea_level                       # perfectly flat water-line
-        else:
-            surface_y = int(_lerp(elev0, elev1, t_elev))
-
-            # biome-specific tweaks …
-            if biome == "plains":
-                surface_y = int(_lerp(surface_y, sea_level, 0.4))
-            elif biome == "mountains":
-                surface_y -= 8
-                                            # raise terrain (smaller y → higher)
-                
-        if blend_t > 0.0:
-        # Compute neighbour biome’s “ideal” surface_y the same way
-            neighbour_surface = sea_level if biome2 == "ocean" else surface_y  # start with something
-            if biome2 != "ocean":
-                elev0_n = _anchor_elevation(anchor_idx0, min_elev, max_elev)
-                elev1_n = _anchor_elevation(anchor_idx1, min_elev, max_elev)
-                neighbour_surface = int(_lerp(elev0_n, elev1_n, t_elev))
-                if biome2 == "plains":
-                    neighbour_surface = int(_lerp(neighbour_surface, sea_level, 0.4))
-                elif biome2 == "mountains":
-                    neighbour_surface -= 8
-
-            # Blend the two heights
-            surface_y = int(_lerp(surface_y, neighbour_surface, blend_t))
+        base_y = _lerp(elev0, elev1, t_elev)
 
 
-        surface_y = max(0, min(height - 2, surface_y))               # clamp
+        def _bias(b: str, base: float) -> float:
+            if b == "ocean":
+                return sea_level - base
+            if b == "plains":
+                return _lerp(base, sea_level, 0.4) - base
+            if b == "mountains":
+                return -8.0
+            return 0.0
+
+        bias_left  = _bias(biome,  base_y)
+        bias_right = _bias(biome2, base_y)
+
+        w = (1 - np.cos(blend_t * np.pi)) * 0.5
+        surface_y_f = base_y + (1 - w) * bias_left + w * bias_right
+
+        surface_y = int(round(surface_y_f))   
+        surface_y = max(0, min(height - 2, surface_y))
+
 
         # ----- Column filling ----------------------------------------------
         water_depth = 6  # tiles
