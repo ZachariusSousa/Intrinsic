@@ -3,9 +3,14 @@
 This document lists potential extensions to make the environment richer and more suitable for neurosymbolic AI experiments. The goal is to expose the agent to complex dynamics so it can discover rules and strategies for long-term survival.
 
 ## 1. World Generation
-- Multiple biomes (forest, desert, snow, underground cave)
+* Multiple biomes (forest, desert, snow, ocean)
+* Smooth biome transitions via elevation and surface blending
+- Biome-specific underground layers (e.g., iron-rich mountains, sandy deserts)
+- Rare sub-biomes (e.g., flower fields, icy deserts, jungle variants)
 - Procedural structures such as caves, ruins and dungeons
 - Dynamic fluids (flowing water and lava)
+- Weather system (rain, snow, wind); localized and seasonal
+- Temperature and humidity noise maps for realistic biome placement
 - Day/night cycle and seasonal weather effects
 
 ## 2. Entities and Interactions
