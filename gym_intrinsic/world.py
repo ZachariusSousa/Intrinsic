@@ -1,20 +1,10 @@
 import numpy as np
 import pygame
 import random
+from .items import export_block_constants, ORE_TYPES
 
-# === Block types ============================================================
-EMPTY, DIRT, STONE, COPPER_ORE, IRON_ORE, GOLD_ORE, WOOD, LEAVES, WATER, SAND, CACTUS, GRASS, SNOW, ICE = range(14)
-ORE_TYPES = [COPPER_ORE, IRON_ORE, GOLD_ORE]
-
-COLOR_MAP = {
-    DIRT: (139, 69, 19),         STONE: (100, 100, 100),
-    COPPER_ORE: (184, 115, 51),  IRON_ORE: (197, 197, 197),
-    GOLD_ORE: (255, 215, 0),     WOOD: (160, 82, 45),
-    LEAVES: (34, 139, 34),       WATER: (0, 0, 255),
-    SAND: (237, 201, 175),       CACTUS: (0, 155, 0),
-    GRASS: (124, 252,   0),      SNOW:  (255, 250, 250),
-    ICE:   (173, 216, 230),
-}
+globals().update(export_block_constants())
+EMPTY = 0
 
 BIOMES = ["forest", "plains", "desert", "ocean", "mountains"]
 
@@ -22,8 +12,8 @@ BIOMES = ["forest", "plains", "desert", "ocean", "mountains"]
 BIOME_SEGMENT   = 64           # columns per biome (~10 screens at 32-px tiles)
 COARSE_STEP     = 128           # columns between elevation anchor points
 SEA_LEVEL_FRACT = 0.30          # % of world-height where water surface sits
-BLEND_WIDTH   = 16         # try 16-48; larger = softer transitions
-BLEND_NOISE   = 0.35        # 0–1 → roughness of patchy blocks in the band
+BLEND_WIDTH   = 16         # larger = softer transitions
+BLEND_NOISE   = 0.35        # 0–1 → roughness of patchy blocks in the blend zone
 
 # ---------------------------------------------------------------------------
 # – helper noise utilities (no external libs, fully deterministic) –

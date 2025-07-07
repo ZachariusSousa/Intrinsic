@@ -37,7 +37,7 @@ def draw_blocks(env, light):
         screen_rect = rect.move(-env.camera_x, -env.camera_y)
         if screen_rect.bottom < 0 or screen_rect.top > env.screen_height:
             continue
-        color = world.COLOR_MAP.get(block, (255, 255, 255))
+        color = items.COLOR_MAP.get(block, (255, 255, 255))
         color = tuple(int(c * light) for c in color)
         pygame.draw.rect(env.screen, color, screen_rect)
 
@@ -47,7 +47,7 @@ def draw_water(env, light):
         screen_rect = rect.move(-env.camera_x, -env.camera_y)
         if screen_rect.bottom < 0 or screen_rect.top > env.screen_height:
             continue
-        water_color = tuple(int(c * light) for c in world.COLOR_MAP[world.WATER])
+        water_color = tuple(int(c * light) for c in items.COLOR_MAP[world.WATER])
         pygame.draw.rect(env.screen, water_color, screen_rect)
 
 
