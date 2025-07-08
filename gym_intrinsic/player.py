@@ -7,11 +7,13 @@ class Player:
 
     def __init__(self, screen_height: int, tile_size: int):
         self.tile_size = tile_size
+        width = int(tile_size * 0.6)   # narrower
+        height = int(tile_size * 0.875)
         self.rect = pygame.Rect(
             50,
             screen_height - tile_size * 2,
-            int(tile_size * 0.875),
-            int(tile_size * 0.875),
+            width,
+            height,
         )
         self.velocity = [0.0, 0.0]
         self.facing = [1, 0]

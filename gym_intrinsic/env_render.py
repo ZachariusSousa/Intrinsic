@@ -69,18 +69,52 @@ def draw_mining_indicator(env):
 
 
 def draw_entities(env, light):
-    player_color = tuple(int(c * light) for c in (255, 0, 0))
-    pygame.draw.rect(env.screen, player_color, env.player.rect.move(-env.camera_x, -env.camera_y))
+    # Lazy-load player sprites
+    if not hasattr(env, "player_sprites"):
+        import os
+        TEXTURE_PATH = os.path.join(os.path.dirname(__file__), "..", "textures")
+        env.player_sprites = {
+            dir: pygame.image.load(os.path.join(TEXTURE_PATH, f"player_{dir}.png")).convert_alpha()
+            for dir in ["up", "down", "left", "right"]
+        }
 
+    direction = (
+    "right" if env.player.facing == [1, 0]
+    else "left" if env.player.facing == [-1, 0]
+    else "up" if env.player.facing == [0, -1]
+    else "down"
+    )
+
+    sprite = env.player_sprites[direction]
+
+    # Get bounding box of visible pixels
+    bbox = sprite.get_bounding_rect()  # only non-transparent region
+    cropped = sprite.subsurface(bbox)
+
+    # Scale up so cropped area becomes tile_size
+    scale_factor = env.tile_size / max(bbox.width, bbox.height)
+    new_size = (int(cropped.get_width() * scale_factor), int(cropped.get_height() * scale_factor))
+    scaled_sprite = pygame.transform.scale(cropped, new_size)
+
+    # Compute position so it sits on the ground and is horizontally centered
+    screen_x = env.player.rect.centerx - new_size[0] // 2 - env.camera_x
+    screen_y = env.player.rect.bottom - new_size[1] - env.camera_y
+    env.screen.blit(scaled_sprite, (screen_x, screen_y))
+
+
+    
+    # Draw mobs
     for entity in env.enemies + env.passive_mobs:
         screen_rect = entity.rect.move(-env.camera_x, -env.camera_y)
         color = tuple(int(c * light) for c in entity.color)
         pygame.draw.rect(env.screen, color, screen_rect)
 
+    # Draw projectiles
     for proj in env.projectiles:
         screen_rect = proj.rect.move(-env.camera_x, -env.camera_y)
         proj_color = tuple(int(c * light) for c in (0, 0, 0))
         pygame.draw.rect(env.screen, proj_color, screen_rect)
+
 
 
 def draw_facing_indicator(env, light):
@@ -107,3 +141,8 @@ def draw_ui(env):
     draw_bar(env.player.health, env.player.max_health, (255, 0, 0), 30)
     draw_bar(env.player.food, env.player.max_food, (0, 128, 0), 45)
     draw_bar(env.player.oxygen, env.player.max_oxygen, (0, 0, 255), 60)
+    
+    # Draw FPS counter
+    fps = int(env.clock.get_fps())
+    fps_text = env.font.render(f"FPS: {fps}", True, (255, 255, 255))
+    env.screen.blit(fps_text, (10, 10))

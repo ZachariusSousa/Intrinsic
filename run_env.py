@@ -5,7 +5,7 @@ import pygame
 import gym
 import gym_intrinsic
 import numpy as np
-
+ 
 def main():
     parser = argparse.ArgumentParser(description="Run the gym environment")
     parser.add_argument(

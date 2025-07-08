@@ -3,6 +3,7 @@ import numpy as np
 import gym
 from typing import Optional
 from gym import spaces
+import os
 
 from . import world
 from . import items
@@ -23,9 +24,9 @@ class IntrinsicEnv(gym.Env):
 
     def __init__(self):
         super().__init__()
-        self.screen_width = 640
-        self.screen_height = 480
-        self.tile_size = 32
+        self.screen_width = 1280
+        self.screen_height = 960
+        self.tile_size = 64
 
         # Actions: left, right, jump, use item, destroy block
         self.action_space = spaces.MultiBinary(5)
@@ -37,8 +38,8 @@ class IntrinsicEnv(gym.Env):
         self.observation_space = spaces.Box(low=np.zeros(4, dtype=np.float32), high=high, dtype=np.float32)
 
         self.gravity = 0.8
-        self.speed = 5
-        self.jump_velocity = -15
+        self.speed = 10
+        self.jump_velocity = -20
 
         self.player = Player(self.screen_height, self.tile_size)
         self.facing = [1, 0]  # initially facing right
