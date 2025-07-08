@@ -3,38 +3,36 @@ import pygame
 import random
 from .items import export_block_constants, ORE_TYPES
 
+# === Import block constants like DIRT, STONE, etc. ===
 globals().update(export_block_constants())
 EMPTY = 0
 
+# === List of available biomes ===
 BIOMES = ["forest", "plains", "desert", "ocean", "mountains"]
 
-# === Global noise settings ===================================================
-BIOME_SEGMENT   = 64           # columns per biome (~10 screens at 32-px tiles)
-COARSE_STEP     = 128           # columns between elevation anchor points
-SEA_LEVEL_FRACT = 0.30          # % of world-height where water surface sits
-BLEND_WIDTH   = 16         # larger = softer transitions
-BLEND_NOISE   = 0.35        # 0–1 → roughness of patchy blocks in the blend zone
+# === Global terrain parameters ===
+BIOME_SEGMENT   = 64     # Width of a biome in tiles
+COARSE_STEP     = 128    # Distance between elevation anchor points
+SEA_LEVEL_FRACT = 0.30   # Sea level as a fraction of total world height
+BLEND_WIDTH     = 16     # Width of the biome blend zone
+BLEND_NOISE     = 0.35   # Randomness in biome blending
 
+# === Cave generation settings (2D value noise) ===
+CAVE_FREQ   = 6          # Grid cell size for noise interpolation (lower = tighter variation)
+CAVE_THRESH = 0.45       # Noise threshold under which tiles become empty (caves)
 
-def _cave_noise(x: int, y: int) -> float:
-    """Deterministic cave noise value between 0 and 1 for (x, y)."""
-    return _rand_unit(x * 73856093 ^ y * 19349663)  # Simple hash combo
-
-# --- simple 2-D value noise (deterministic, O(1) per sample) -------------
-CAVE_FREQ   = 6          # bigger → wider caves; try 8-20
-CAVE_THRESH = 0.35        # lower → fewer caves
-
+# === Value noise for caves ===================================================
 def _valrand(ix: int, iy: int) -> float:
-    """Repeatable random in [0,1) for the lattice point (ix, iy)."""
+    """Repeatable pseudo-random value for grid point (ix, iy)."""
     return _rand_unit(ix * 374761393 + iy * 668265263)
 
 def _value_noise(x: int, y: int, freq: int = CAVE_FREQ) -> float:
     """
-    Coherent noise by bilinear-interpolating a coarse grid of random values.
-    `freq` is the size of each lattice cell in tiles.
+    2D bilinear-interpolated value noise.
+    Produces smooth pseudo-random values from a coarse grid.
     """
-    gx, gy   = x // freq, y // freq        # lattice cell origin
-    fx, fy   = (x % freq) / freq, (y % freq) / freq
+    gx, gy = x // freq, y // freq
+    fx, fy = (x % freq) / freq, (y % freq) / freq
 
     v00 = _valrand(gx,     gy    )
     v10 = _valrand(gx + 1, gy    )
@@ -45,13 +43,9 @@ def _value_noise(x: int, y: int, freq: int = CAVE_FREQ) -> float:
     vx1 = _lerp(v01, v11, fx)
     return _lerp(vx0, vx1, fy)
 
-
-
-# ---------------------------------------------------------------------------
-# – helper noise utilities (no external libs, fully deterministic) –
-# ---------------------------------------------------------------------------
+# === Hash-based utilities for deterministic generation =======================
 def _hash32(x: int) -> int:
-    """Cheap 32-bit integer hash (Thomas Wang)."""
+    """Cheap 32-bit hash (Thomas Wang's integer hash)."""
     x = (x ^ 61) ^ (x >> 16)
     x = x + (x << 3)
     x = x ^ (x >> 4)
@@ -60,65 +54,55 @@ def _hash32(x: int) -> int:
     return x & 0xFFFFFFFF
 
 def _rand_unit(n: int) -> float:
-    """Deterministic pseudorandom float in [0,1)."""
+    """Convert hashed int to float in [0, 1)."""
     return _hash32(n + WORLD_SEED) / 0xFFFFFFFF
 
 def _anchor_elevation(anchor_idx: int, h_min: int, h_max: int) -> int:
-    """Deterministic elevation at an anchor column."""
+    """Return base elevation for a terrain anchor point."""
     return int(h_min + _rand_unit(anchor_idx * 17) * (h_max - h_min))
 
 def _lerp(a: float, b: float, t: float) -> float:
+    """Linear interpolation between a and b."""
     return a + t * (b - a)
 
+# === Biome selection and blending ============================================
 def _biome_for_x(global_x: int) -> str:
-    """Biome chosen per BIOME_SEGMENT; now depends on WORLD_SEED too."""
+    """Choose a biome based on tile's global X coordinate."""
     segment = global_x // BIOME_SEGMENT
     return BIOMES[_hash32(segment * 97 + WORLD_SEED) % len(BIOMES)]
 
-
 def _biome_blend(global_x: int) -> tuple[str, str, float]:
     """
-    Returns (left_biome, right_biome, t) where
-        • t ∈ [0,1] spans the *entire* 2·BLEND_WIDTH zone around a boundary
-        • outside that zone: left == right and t == 0
-    This eliminates the double-ramp “V” shape.
+    Returns (left_biome, right_biome, blend_t)
+    where blend_t ∈ [0, 1] indicates position within blend zone.
     """
-    seg        = global_x // BIOME_SEGMENT      
-    pos        = global_x %  BIOME_SEGMENT     
-    b_left     = _biome_for_x((seg - 1) * BIOME_SEGMENT)
-    b_mid      = _biome_for_x(seg       * BIOME_SEGMENT)
-    b_right    = _biome_for_x((seg + 1) * BIOME_SEGMENT)
+    seg  = global_x // BIOME_SEGMENT
+    pos  = global_x % BIOME_SEGMENT
+    b_left  = _biome_for_x((seg - 1) * BIOME_SEGMENT)
+    b_mid   = _biome_for_x(seg * BIOME_SEGMENT)
+    b_right = _biome_for_x((seg + 1) * BIOME_SEGMENT)
 
     if pos >= BIOME_SEGMENT - BLEND_WIDTH:
-        t = (pos - (BIOME_SEGMENT - BLEND_WIDTH)) / (2 * BLEND_WIDTH)  
+        t = (pos - (BIOME_SEGMENT - BLEND_WIDTH)) / (2 * BLEND_WIDTH)
         return b_mid, b_right, t
-
     if pos < BLEND_WIDTH:
-        t = (pos + BLEND_WIDTH) / (2 * BLEND_WIDTH)        
+        t = (pos + BLEND_WIDTH) / (2 * BLEND_WIDTH)
         return b_left, b_mid, t
 
     return b_mid, b_mid, 0.0
 
-
-
-
+# === Set the world seed ======================================================
 def set_world_seed(seed: int | None = None):
-    """
-    Change the global WORLD_SEED used by every biome/terrain hash.
-    Call once at start-up.  If you pass no argument, we pick a new
-    pseudo-random seed so each program run is unique.
-    """
+    """Set global WORLD_SEED. If none, generate a new random one."""
     global WORLD_SEED
     if seed is None:
         seed = random.randint(0, 2**31 - 1)
-    WORLD_SEED = seed & 0xFFFFFFFF       # keep it 32-bit for the hash
-    random.seed(seed)                    # for np.random.rand() calls
+    WORLD_SEED = seed & 0xFFFFFFFF
+    random.seed(seed)
     np.random.seed(seed)
 set_world_seed()
 
-# ---------------------------------------------------------------------------
-# – public API : generate_world() –
-# ---------------------------------------------------------------------------
+# === Main world generation function ==========================================
 def generate_world(
     width: int,
     height: int,
@@ -130,74 +114,60 @@ def generate_world(
     tree_chance: float = 0.05,
 ):
     """
-    Produce a slice of the infinite world starting at `world_x_offset`
-    (in tiles) and spanning `width` columns by `height` rows.
+    Generate a terrain slice of width × height starting at world_x_offset.
+    Includes biome blending, surface materials, ores, and cave carving.
     """
     grid = np.zeros((height, width), dtype=np.int8)
     sea_level = int(height * SEA_LEVEL_FRACT)
-
     min_elev, max_elev = int(height * 0.35), int(height * 0.55)
 
-    # Generate every column
     for local_x in range(width):
-        global_x      = world_x_offset + local_x
+        global_x = world_x_offset + local_x
         biome, biome2, blend_t = _biome_blend(global_x)
 
-        base_segment = None
-        if biome == _biome_for_x(global_x):
-            base_segment = global_x // BIOME_SEGMENT
-        else:
-            base_segment = (global_x // BIOME_SEGMENT) - 1
-
+        # Determine elevation anchors for smooth terrain
+        base_segment = global_x // BIOME_SEGMENT if biome == _biome_for_x(global_x) else (global_x // BIOME_SEGMENT) - 1
         base_origin_x = base_segment * BIOME_SEGMENT
-        anchor_idx0   = (base_origin_x + (global_x - base_origin_x)) // COARSE_STEP
-        anchor_idx1   = anchor_idx0 + 1
-        anchor_x0     = anchor_idx0 * COARSE_STEP
-        t_elev        = (global_x - anchor_x0) / COARSE_STEP
-
+        anchor_idx0 = (base_origin_x + (global_x - base_origin_x)) // COARSE_STEP
+        anchor_idx1 = anchor_idx0 + 1
+        anchor_x0   = anchor_idx0 * COARSE_STEP
+        t_elev      = (global_x - anchor_x0) / COARSE_STEP
 
         elev0 = _anchor_elevation(anchor_idx0, min_elev, max_elev)
         elev1 = _anchor_elevation(anchor_idx1, min_elev, max_elev)
         base_y = _lerp(elev0, elev1, t_elev)
 
-
+        # Apply biome-specific elevation offsets
         def _bias(b: str, base: float) -> float:
-            if b == "ocean":
-                return sea_level - base
-            if b == "plains":
-                return _lerp(base, sea_level, 0.4) - base
-            if b == "mountains":
-                return -8.0
+            if b == "ocean": return sea_level - base
+            if b == "plains": return _lerp(base, sea_level, 0.4) - base
+            if b == "mountains": return -8.0
             return 0.0
 
         bias_left  = _bias(biome,  base_y)
         bias_right = _bias(biome2, base_y)
-
         w = (1 - np.cos(blend_t * np.pi)) * 0.5
         surface_y_f = base_y + (1 - w) * bias_left + w * bias_right
+        surface_y = max(0, min(height - 2, int(round(surface_y_f))))
 
-        surface_y = int(round(surface_y_f))   
-        surface_y = max(0, min(height - 2, surface_y))
-
-
-        # ----- Column filling ----------------------------------------------
-        water_depth = 6  # tiles
+        # Fill column from surface downward
+        water_depth = 6
         for y in range(surface_y, height):
             depth = y - surface_y
 
-            # --- Cave carving ----------------------------------------------------
+            # === Carve out caves using value noise ===
             if depth >= dirt_depth:
-                n = _value_noise(global_x, y)          # smooth 2-D noise
+                n = _value_noise(global_x, y)
                 if n < CAVE_THRESH:
-                    continue      # ← prevents later code from overwriting the cave block
+                    continue  # leave cell empty and skip material placement
 
-            # --- Column material placement --------------------------------------
+            # === Ocean water surface ===
             if biome == "ocean" and depth < water_depth:
                 grid[y, local_x] = WATER
                 continue
 
+            # === Surface block ===
             if depth == 0:
-                # decide surface material for primary & neighbour
                 def _top(b: str):
                     return {
                         "desert": SAND,
@@ -209,25 +179,20 @@ def generate_world(
                 if blend_t == 0:
                     grid[y, local_x] = _top(biome)
                 else:
-                    # probabilistic mix so patches look noisy
                     prob = blend_t + (np.random.rand() - 0.5) * BLEND_NOISE
                     grid[y, local_x] = _top(biome2) if prob > 0.5 else _top(biome)
 
-
-            # === Sub-surface dirt/sand ===
+            # === Subsurface layer ===
             elif depth < dirt_depth:
                 grid[y, local_x] = SAND if biome == "desert" else DIRT
 
-            # === Stone & ores ===
+            # === Stone and ores ===
             elif depth < stone_depth:
-                if np.random.rand() < ore_chance:
-                    grid[y, local_x] = np.random.choice(ORE_TYPES)
-                else:
-                    grid[y, local_x] = STONE
+                grid[y, local_x] = np.random.choice(ORE_TYPES) if np.random.rand() < ore_chance else STONE
             else:
                 grid[y, local_x] = STONE
 
-        # ----- Decorations ---------------------------------------------------
+        # === Tree decoration (forest) ===
         if biome == "forest" and grid[surface_y, local_x] == DIRT and np.random.rand() < tree_chance:
             trunk_h = np.random.randint(3, 6)
             for h in range(trunk_h):
@@ -241,6 +206,7 @@ def generate_world(
                     if 0 <= nx < width and 0 <= ny < height and grid[ny, nx] == EMPTY:
                         grid[ny, nx] = LEAVES
 
+        # === Cactus decoration (desert) ===
         elif biome == "desert" and grid[surface_y, local_x] == SAND and np.random.rand() < 0.03:
             c_h = np.random.randint(2, 4)
             for h in range(c_h):
@@ -248,15 +214,16 @@ def generate_world(
                 if y >= 0:
                     grid[y, local_x] = CACTUS
 
-    # Bedrock layer (last row)
+    # Final bedrock row
     grid[-1, :] = STONE
     return grid
 
-# ---------------------------------------------------------------------------
-# – unchanged: blocks_from_grid –
-# ---------------------------------------------------------------------------
+# === Block rect conversion ===================================================
 def blocks_from_grid(grid: np.ndarray, tile_size: int):
-    """Return solid-block rects (for collisions) and water rects (for swimming)."""
+    """
+    Converts grid to Pygame rects for collisions and rendering.
+    Returns solid block rects and water rects separately.
+    """
     height, width = grid.shape
     solid, water = [], []
 
