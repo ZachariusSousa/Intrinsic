@@ -15,6 +15,38 @@ SEA_LEVEL_FRACT = 0.30          # % of world-height where water surface sits
 BLEND_WIDTH   = 16         # larger = softer transitions
 BLEND_NOISE   = 0.35        # 0–1 → roughness of patchy blocks in the blend zone
 
+
+def _cave_noise(x: int, y: int) -> float:
+    """Deterministic cave noise value between 0 and 1 for (x, y)."""
+    return _rand_unit(x * 73856093 ^ y * 19349663)  # Simple hash combo
+
+# --- simple 2-D value noise (deterministic, O(1) per sample) -------------
+CAVE_FREQ   = 6          # bigger → wider caves; try 8-20
+CAVE_THRESH = 0.35        # lower → fewer caves
+
+def _valrand(ix: int, iy: int) -> float:
+    """Repeatable random in [0,1) for the lattice point (ix, iy)."""
+    return _rand_unit(ix * 374761393 + iy * 668265263)
+
+def _value_noise(x: int, y: int, freq: int = CAVE_FREQ) -> float:
+    """
+    Coherent noise by bilinear-interpolating a coarse grid of random values.
+    `freq` is the size of each lattice cell in tiles.
+    """
+    gx, gy   = x // freq, y // freq        # lattice cell origin
+    fx, fy   = (x % freq) / freq, (y % freq) / freq
+
+    v00 = _valrand(gx,     gy    )
+    v10 = _valrand(gx + 1, gy    )
+    v01 = _valrand(gx,     gy + 1)
+    v11 = _valrand(gx + 1, gy + 1)
+
+    vx0 = _lerp(v00, v10, fx)
+    vx1 = _lerp(v01, v11, fx)
+    return _lerp(vx0, vx1, fy)
+
+
+
 # ---------------------------------------------------------------------------
 # – helper noise utilities (no external libs, fully deterministic) –
 # ---------------------------------------------------------------------------
@@ -153,12 +185,17 @@ def generate_world(
         for y in range(surface_y, height):
             depth = y - surface_y
 
-            # === WATER (only oceans; keep first several blocks)
+            # --- Cave carving ----------------------------------------------------
+            if depth >= dirt_depth:
+                n = _value_noise(global_x, y)          # smooth 2-D noise
+                if n < CAVE_THRESH:
+                    continue      # ← prevents later code from overwriting the cave block
+
+            # --- Column material placement --------------------------------------
             if biome == "ocean" and depth < water_depth:
                 grid[y, local_x] = WATER
                 continue
 
-            # === Surface block ===
             if depth == 0:
                 # decide surface material for primary & neighbour
                 def _top(b: str):
