@@ -1,10 +1,9 @@
 import numpy as np
 import pygame
 import random
-from .items import export_block_constants, ORE_TYPES
+from .items import Block, ORE_TYPES
 
-# === Import block constants like DIRT, STONE, etc. ===
-globals().update(export_block_constants())
+
 EMPTY = 0
 
 # === List of available biomes ===
@@ -163,18 +162,18 @@ def generate_world(
 
             # === Ocean water surface ===
             if biome == "ocean" and depth < water_depth:
-                grid[y, local_x] = WATER
+                grid[y, local_x] = Block.WATER
                 continue
 
             # === Surface block ===
             if depth == 0:
                 def _top(b: str):
                     return {
-                        "desert": SAND,
-                        "plains": GRASS,
-                        "mountains": SNOW,
-                        "ocean": SAND,
-                    }.get(b, DIRT)
+                        "desert": Block.SAND,
+                        "plains": Block.GRASS,
+                        "mountains": Block.SNOW,
+                        "ocean": Block.SAND,
+                    }.get(b, Block.DIRT)
 
                 if blend_t == 0:
                     grid[y, local_x] = _top(biome)
@@ -184,38 +183,38 @@ def generate_world(
 
             # === Subsurface layer ===
             elif depth < dirt_depth:
-                grid[y, local_x] = SAND if biome == "desert" else DIRT
+                grid[y, local_x] = Block.SAND if biome == "desert" else Block.DIRT
 
             # === Stone and ores ===
             elif depth < stone_depth:
-                grid[y, local_x] = np.random.choice(ORE_TYPES) if np.random.rand() < ore_chance else STONE
+                grid[y, local_x] = np.random.choice(ORE_TYPES) if np.random.rand() < ore_chance else Block.STONE
             else:
-                grid[y, local_x] = STONE
+                grid[y, local_x] = Block.STONE
 
         # === Tree decoration (forest) ===
-        if biome == "forest" and grid[surface_y, local_x] == DIRT and np.random.rand() < tree_chance:
+        if biome == "forest" and grid[surface_y, local_x] == Block.DIRT and np.random.rand() < tree_chance:
             trunk_h = np.random.randint(3, 6)
             for h in range(trunk_h):
                 y = surface_y - h
                 if y >= 0:
-                    grid[y, local_x] = WOOD
+                    grid[y, local_x] = Block.WOOD
             top_y = surface_y - trunk_h + 1
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
                     nx, ny = local_x + dx, top_y + dy
                     if 0 <= nx < width and 0 <= ny < height and grid[ny, nx] == EMPTY:
-                        grid[ny, nx] = LEAVES
+                        grid[ny, nx] = Block.LEAVES
 
         # === Cactus decoration (desert) ===
-        elif biome == "desert" and grid[surface_y, local_x] == SAND and np.random.rand() < 0.03:
+        elif biome == "desert" and grid[surface_y, local_x] == Block.SAND and np.random.rand() < 0.03:
             c_h = np.random.randint(2, 4)
             for h in range(c_h):
                 y = surface_y - h
                 if y >= 0:
-                    grid[y, local_x] = CACTUS
+                    grid[y, local_x] = Block.CACTUS
 
     # Final bedrock row
-    grid[-1, :] = STONE
+    grid[-1, :] = Block.STONE
     return grid
 
 # === Block rect conversion ===================================================
@@ -233,6 +232,6 @@ def blocks_from_grid(grid: np.ndarray, tile_size: int):
             if block == EMPTY:
                 continue
             rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
-            (water if block == WATER else solid).append((rect, block) if block != WATER else rect)
+            (water if block == Block.WATER else solid).append((rect, block) if block != Block.WATER else rect)
 
     return solid, water

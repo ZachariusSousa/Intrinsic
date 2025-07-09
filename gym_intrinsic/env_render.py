@@ -2,6 +2,8 @@ import pygame
 from . import world
 from .inventory_ui import InventoryUI
 from . import items
+from .items import Block, ORE_TYPES
+
 
 
 def render_environment(env):
@@ -52,7 +54,7 @@ def draw_water(env, light):
         screen_rect = rect.move(-env.camera_x, -env.camera_y)
         if screen_rect.bottom < 0 or screen_rect.top > env.screen_height:
             continue
-        water_color = tuple(int(c * light) for c in items.COLOR_MAP[world.WATER])
+        water_color = tuple(int(c * light) for c in items.COLOR_MAP[Block.WATER])
         pygame.draw.rect(env.screen, water_color, screen_rect)
 
 

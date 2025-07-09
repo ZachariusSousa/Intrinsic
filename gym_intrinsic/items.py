@@ -25,9 +25,7 @@ ITEM_TO_BLOCK: Dict[str, int] = {}
 BLOCK_TO_ITEM: Dict[int, str] = {}
 BLOCK_STATS: Dict[int, ItemInfo] = {}
 
-def export_block_constants():
-    return {name.upper(): block_id for name, block_id in ITEM_TO_BLOCK.items()}
-
+# === Parse item definitions ===
 for name, data in _RAW_ITEMS.items():
     info = ItemInfo(**data)
     ITEM_STATS[name] = info
@@ -36,6 +34,7 @@ for name, data in _RAW_ITEMS.items():
         BLOCK_TO_ITEM[info.block_id] = name
         BLOCK_STATS[info.block_id] = info
 
+# === Construct color map and ore types ===
 COLOR_MAP: Dict[int, tuple[int, int, int]] = {
     info.block_id: tuple(info.color)
     for info in ITEM_STATS.values()
@@ -47,4 +46,14 @@ ORE_TYPES: list[int] = [
     if info.group == "ore" and info.block_id is not None
 ]
 
+# === Create Block namespace ===
+class Block:
+    """Convenient access to block IDs like Block.DIRT, Block.GRASS, etc."""
+    pass
 
+for name, block_id in ITEM_TO_BLOCK.items():
+    setattr(Block, name.upper(), block_id)
+
+# === Optional: legacy export if needed elsewhere ===
+def export_block_constants():
+    return {name.upper(): block_id for name, block_id in ITEM_TO_BLOCK.items()}

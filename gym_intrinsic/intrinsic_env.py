@@ -12,9 +12,11 @@ from .enemy_mobs import Enemy, Projectile, spawn_random_enemies, update_enemies,
 from .passive_mobs import PassiveMob, spawn_random_passive_mobs, update_passive_mobs
 from .weather import WeatherSystem
 from .inventory_ui import InventoryUI
+from .items import Block, ORE_TYPES
 from . import player_actions
 from . import env_logic
 from . import env_render
+
 
 
 class IntrinsicEnv(gym.Env):
@@ -124,7 +126,7 @@ class IntrinsicEnv(gym.Env):
         if below_y >= self.grid_height:
             return True
         def solid(val):
-            return val not in (world.EMPTY, world.WATER)
+            return val not in (world.EMPTY, Block.WATER)
         return (
             solid(self.grid[below_y, left_x])
             or solid(self.grid[below_y, right_x])
@@ -189,7 +191,7 @@ class IntrinsicEnv(gym.Env):
         """Return the surface y position (in pixels) for spawning an enemy."""
         for y in range(self.grid_height):
             block = self.grid[y, tile_x]
-            if block != world.EMPTY and block not in (world.WOOD, world.LEAVES):
+            if block != world.EMPTY and block not in (Block.WOOD, Block.LEAVES):
                 return max(0, (y - 1) * self.tile_size)
         # default to ground level if nothing found
         return max(0, (self.grid_height - 2) * self.tile_size)
