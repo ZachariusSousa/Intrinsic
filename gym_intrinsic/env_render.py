@@ -7,7 +7,7 @@ from . import items
 def render_environment(env):
     if env.screen is None:
         pygame.init()
-        env.screen = pygame.display.set_mode((env.screen_width, env.screen_height))
+        env.screen = pygame.display.set_mode((env.screen_width, env.screen_height), pygame.RESIZABLE)
         env.clock = pygame.time.Clock()
         env.font = pygame.font.SysFont(None, 24)
         if env.inventory_ui is None:
@@ -18,6 +18,11 @@ def render_environment(env):
         if event.type == pygame.QUIT:
             env.close()
             return
+        elif event.type == pygame.VIDEORESIZE:
+            env.screen_width, env.screen_height = event.size
+            env.screen = pygame.display.set_mode((env.screen_width, env.screen_height), pygame.RESIZABLE)
+            if env.inventory_ui:
+                env.inventory_ui.reposition(env.screen_width, env.screen_height)
 
     env.screen.fill(env.weather.get_sky_color())
     light = env.weather.get_light_intensity()
@@ -133,16 +138,39 @@ def draw_ui(env):
 
     env.inventory_ui.draw(env.screen)
 
-    def draw_bar(value, max_value, color, y):
-        ratio = value / max_value
-        pygame.draw.rect(env.screen, color, pygame.Rect(10, y, 100 * ratio, 10))
-        pygame.draw.rect(env.screen, (0, 0, 0), pygame.Rect(10, y, 100, 10), 2)
+    def draw_bar(value, max_value, color, y_frac):
+        screen_w = env.screen.get_width()
+        screen_h = env.screen.get_height()
 
-    draw_bar(env.player.health, env.player.max_health, (255, 0, 0), 30)
-    draw_bar(env.player.food, env.player.max_food, (0, 128, 0), 45)
-    draw_bar(env.player.oxygen, env.player.max_oxygen, (0, 0, 255), 60)
-    
+        scale = min(screen_w / 1280, screen_h / 960)
+        bar_width = int(300 * scale)
+        bar_height = int(20 * scale)
+        y = int(screen_h * y_frac)
+
+        ratio = value / max_value
+        filled_width = int(bar_width * ratio)
+
+        pygame.draw.rect(env.screen, color, pygame.Rect(10, y, filled_width, bar_height))
+        pygame.draw.rect(env.screen, (0, 0, 0), pygame.Rect(10, y, bar_width, bar_height), 2)
+
+    draw_bar(env.player.health, env.player.max_health, (255, 0, 0), 0.03)
+    draw_bar(env.player.food, env.player.max_food, (0, 128, 0), 0.06)
+    draw_bar(env.player.oxygen, env.player.max_oxygen, (0, 0, 255), 0.09)
+
     # Draw FPS counter
+    screen_w = env.screen.get_width()
+    screen_h = env.screen.get_height()
+    scale = min(screen_w / 1280, screen_h / 960)
+
+    font_size = max(20, int(30 * scale))
+    font = pygame.font.SysFont(None, font_size)
+
     fps = int(env.clock.get_fps())
-    fps_text = env.font.render(f"FPS: {fps}", True, (255, 255, 255))
-    env.screen.blit(fps_text, (10, 10))
+    fps_text = font.render(f"FPS: {fps}", True, (255, 255, 255))
+
+    # Place below the last bar (adjust spacing based on scaled height)
+    fps_x = 10
+    fps_y = int(screen_h * 0.12)
+
+    env.screen.blit(fps_text, (fps_x, fps_y))
+

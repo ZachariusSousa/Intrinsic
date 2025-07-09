@@ -4,14 +4,16 @@ from typing import List, Optional, Tuple
 class InventoryUI:
     """Simple inventory and hotbar UI with drag-and-drop."""
 
-    SLOT_SIZE = 40
     PADDING = 4
-    INV_COLUMNS = 10  # Number of columns for inventory grid
-    MAX_SLOTS = 40  # Maximum number of slots to display
+    INV_COLUMNS = 10
+    MAX_SLOTS = 40
 
     def __init__(self, player, font):
         self.player = player
         self.font = font
+        self.base_slot_size = 80
+        self.slot_size = self.base_slot_size
+
         self.dragging: Optional[str] = None
         self.drag_from_hotbar: bool = False
         self.drag_index: int = -1
@@ -21,36 +23,35 @@ class InventoryUI:
         self.show_inventory = False
 
     def toggle(self) -> None:
-        """Toggle inventory visibility."""
         self.show_inventory = not self.show_inventory
 
     def reposition(self, width: int, height: int) -> None:
-        """Compute slot rectangles based on screen size."""
-        # Hotbar
+        scale = min(width / 1280, height / 960)
+        self.slot_size = int(self.base_slot_size * scale)
+
         self.hotbar_rects = []
-        hb_w = len(self.player.hotbar) * (self.SLOT_SIZE + self.PADDING)
+        hb_w = len(self.player.hotbar) * (self.slot_size + self.PADDING)
         start_x = (width - hb_w) // 2
-        y = height - self.SLOT_SIZE - 10
+        y = height - self.slot_size - 10
         for i in range(len(self.player.hotbar)):
-            rect = pygame.Rect(start_x + i * (self.SLOT_SIZE + self.PADDING), y, self.SLOT_SIZE, self.SLOT_SIZE)
+            rect = pygame.Rect(start_x + i * (self.slot_size + self.PADDING), y, self.slot_size, self.slot_size)
             self.hotbar_rects.append(rect)
 
-        # Inventory (grid)
         self.inv_rects = []
         if self.show_inventory:
             inv_items = list(self.player.inventory.keys())
             rows = (len(inv_items) + self.INV_COLUMNS - 1) // self.INV_COLUMNS
-            total_w = self.INV_COLUMNS * (self.SLOT_SIZE + self.PADDING) - self.PADDING
-            total_h = rows * (self.SLOT_SIZE + self.PADDING) - self.PADDING
+            total_w = self.INV_COLUMNS * (self.slot_size + self.PADDING) - self.PADDING
+            total_h = rows * (self.slot_size + self.PADDING) - self.PADDING
             start_x = (width - total_w) // 2
             start_y = (height - total_h) // 2
 
             for idx, name in enumerate(inv_items):
                 col = idx % self.INV_COLUMNS
                 row = idx // self.INV_COLUMNS
-                x = start_x + col * (self.SLOT_SIZE + self.PADDING)
-                y = start_y + row * (self.SLOT_SIZE + self.PADDING)
-                rect = pygame.Rect(x, y, self.SLOT_SIZE, self.SLOT_SIZE)
+                x = start_x + col * (self.slot_size + self.PADDING)
+                y = start_y + row * (self.slot_size + self.PADDING)
+                rect = pygame.Rect(x, y, self.slot_size, self.slot_size)
                 self.inv_rects.append((name, rect))
 
     def handle_event(self, event) -> None:
@@ -83,13 +84,11 @@ class InventoryUI:
                         self.player.hotbar[idx] = self.dragging
                         self.dragging = None
                         return
-                # Drop anywhere else returns item to inventory
                 self.dragging = None
 
     def draw(self, surface) -> None:
         self.reposition(surface.get_width(), surface.get_height())
 
-        # Inventory
         for name, rect in self.inv_rects:
             pygame.draw.rect(surface, (200, 200, 200), rect)
             pygame.draw.rect(surface, (0, 0, 0), rect, 2)
@@ -100,7 +99,6 @@ class InventoryUI:
                 cnt_surf = self.font.render(str(cnt), True, (0, 0, 0))
                 surface.blit(cnt_surf, (rect.right - cnt_surf.get_width() - 2, rect.bottom - cnt_surf.get_height() - 2))
 
-        # Hotbar
         for idx, rect in enumerate(self.hotbar_rects):
             pygame.draw.rect(surface, (180, 180, 180), rect)
             border_color = (255, 255, 0) if idx == self.player.selected_slot else (0, 0, 0)
@@ -113,24 +111,22 @@ class InventoryUI:
                 cnt_surf = self.font.render(str(cnt), True, (0, 0, 0))
                 surface.blit(cnt_surf, (rect.right - cnt_surf.get_width() - 2, rect.bottom - cnt_surf.get_height() - 2))
 
-        # Dragged item
         if self.dragging:
             pos = pygame.mouse.get_pos()
-            rect = pygame.Rect(pos[0] - self.offset[0], pos[1] - self.offset[1], self.SLOT_SIZE, self.SLOT_SIZE)
+            rect = pygame.Rect(pos[0] - self.offset[0], pos[1] - self.offset[1], self.slot_size, self.slot_size)
             pygame.draw.rect(surface, (255, 255, 255), rect)
             pygame.draw.rect(surface, (0, 0, 0), rect, 2)
             text = self.font.render(self.dragging[:3], True, (0, 0, 0))
             surface.blit(text, (rect.x + 2, rect.y + 2))
 
-        # Draw empty slots in inventory up to MAX_SLOTS
         if self.show_inventory:
             item_names = list(self.player.inventory.keys())
             for i in range(self.MAX_SLOTS):
                 if i >= len(item_names):
                     col = i % self.INV_COLUMNS
                     row = i // self.INV_COLUMNS
-                    x = (surface.get_width() - self.INV_COLUMNS * (self.SLOT_SIZE + self.PADDING) + self.PADDING) // 2 + col * (self.SLOT_SIZE + self.PADDING)
-                    y = (surface.get_height() - ((len(item_names) + self.INV_COLUMNS - 1) // self.INV_COLUMNS) * (self.SLOT_SIZE + self.PADDING) + self.PADDING) // 2 + row * (self.SLOT_SIZE + self.PADDING)
-                    rect = pygame.Rect(x, y, self.SLOT_SIZE, self.SLOT_SIZE)
+                    x = (surface.get_width() - self.INV_COLUMNS * (self.slot_size + self.PADDING) + self.PADDING) // 2 + col * (self.slot_size + self.PADDING)
+                    y = (surface.get_height() - ((len(item_names) + self.INV_COLUMNS - 1) // self.INV_COLUMNS) * (self.slot_size + self.PADDING) + self.PADDING) // 2 + row * (self.slot_size + self.PADDING)
+                    rect = pygame.Rect(x, y, self.slot_size, self.slot_size)
                     pygame.draw.rect(surface, (200, 200, 200), rect)
                     pygame.draw.rect(surface, (0, 0, 0), rect, 2)
