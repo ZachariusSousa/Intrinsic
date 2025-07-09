@@ -1,5 +1,6 @@
 import pygame
 from . import world, items
+from .items import Block
 
 def place_block(player, grid, target_x, target_y, update_blocks):
     selected = player.current_item()
@@ -8,7 +9,7 @@ def place_block(player, grid, target_x, target_y, update_blocks):
         and player.inventory.get(selected, 0) > 0
     ):
         info = items.ITEM_STATS[selected]
-        if info.category == "block" and grid[target_y, target_x] == world.EMPTY:
+        if info.category == "block" and grid[target_y, target_x] == Block.EMPTY:
             grid[target_y, target_x] = info.block_id
             player.inventory[selected] -= 1
             update_blocks()
@@ -40,7 +41,7 @@ def mine_block(grid, target, mining_progress, player, update_blocks):
     required = info.mining_time if info else 1
     mining_progress += 1
     if mining_progress >= required:
-        grid[target_y, target_x] = world.EMPTY
+        grid[target_y, target_x] = Block.EMPTY
         item_name = items.BLOCK_TO_ITEM.get(block)
         if item_name:
             player.inventory.add_item(item_name)

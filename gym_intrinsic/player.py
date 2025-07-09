@@ -1,6 +1,8 @@
 import pygame
 from . import world
 from .inventory import Inventory
+from .items import Block
+
 
 class Player:
     """Simple player container."""
@@ -63,8 +65,8 @@ class Player:
         if below_y >= grid_height:
             return True
         return (
-            grid[below_y, left_x] != world.EMPTY
-            or grid[below_y, right_x] != world.EMPTY
+            grid[below_y, left_x] != Block.EMPTY
+            or grid[below_y, right_x] != Block.EMPTY
         ) and vel_y >= 0
 
     def apply_gravity(self, gravity: float) -> None:

@@ -1,4 +1,5 @@
 {
+  "empty":   { "category": "block", "block_id": 0, "group": "none", "mining_time": 0, "color": [0, 0, 0]},
   "dirt":    { "category": "block", "block_id": 1, "group": "soil", "mining_time": 20, "color": [139, 69, 19] },
   "stone":   { "category": "block", "block_id": 2, "group": "rock", "mining_time": 60, "color": [100, 100, 100] },
   "copper":  { "category": "block", "block_id": 3, "group": "ore", "mining_time": 90, "color": [184, 115, 51] },

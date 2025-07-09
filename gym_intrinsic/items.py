@@ -53,6 +53,7 @@ class Block:
 
 for name, block_id in ITEM_TO_BLOCK.items():
     setattr(Block, name.upper(), block_id)
+setattr(Block, "EMPTY", 0)
 
 # === Optional: legacy export if needed elsewhere ===
 def export_block_constants():

@@ -2,6 +2,7 @@ import pygame
 from . import player_actions, world
 from .enemy_mobs import update_enemies, update_projectiles
 from .passive_mobs import update_passive_mobs
+from .items import Block, ORE_TYPES
 
 
 def handle_input(env, action):
@@ -84,7 +85,7 @@ def handle_actions(env, action):
     if destroy:
         block = env.grid[target_y, target_x]
         target = (target_x, target_y)
-        if block != world.EMPTY:
+        if block != Block.EMPTY:
             if target != env._mining_target:
                 env._mining_target = target
                 env._mining_progress = 0
