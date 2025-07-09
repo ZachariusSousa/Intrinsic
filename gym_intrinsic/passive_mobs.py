@@ -13,6 +13,7 @@ class PassiveMob:
     food_drop: int
     direction: int = 0
     move_timer: int = 0
+    speed: int = 2
     vel_y: float = 0.0
     path: List[Tuple[int, int]] = None
     path_index: int = 0
@@ -84,7 +85,7 @@ def update_passive_mobs(mobs: List[PassiveMob], env) -> None:
                 mob.path_index += 1  # reached the tile
 
             # Horizontal movement
-            mob.rect.x += mob.direction
+            mob.rect.x += mob.direction * mob.speed
             mob.rect.x = max(0, min(mob.rect.x, world_w - tile_size))
 
             # Check if grounded
@@ -100,7 +101,7 @@ def update_passive_mobs(mobs: List[PassiveMob], env) -> None:
                 abs(mob.rect.centerx - target_px) <= tile_size and
                 grounded and abs(mob.vel_y) < 1e-3
             ):
-                mob.vel_y = -10  # small jump to climb
+                mob.vel_y = -13  # small jump to climb
 
         # Horizontal collision
         tile_left = mob.rect.left // tile_size
