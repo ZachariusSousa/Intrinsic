@@ -15,6 +15,7 @@ class Enemy:
     # Colour of the enemy mob
     color: Tuple[int, int, int]
     speed: int
+    jump_height: int = -13  # Jump height for the enemy
     # List of vectors for pathfinfinding
     path: Optional[List[Tuple[int, int]]] = None
     path_index: int = 0
@@ -38,7 +39,7 @@ class MeleeEnemy(Enemy):
     def __post_init__(self):
         self.color = (200, 0, 0)
         self.health = 30
-        self.speed = 2
+        self.speed = 3
 
     def is_melee(self) -> bool:
         return True
@@ -154,7 +155,7 @@ def update_enemies(enemies: List[Enemy], player: Player, projectiles: List[Proje
                 abs(enemy.rect.centerx - target_px) <= tile_size and
                 grounded and abs(enemy.vel_y) < 1e-3
             ):
-                enemy.vel_y = -6
+                enemy.vel_y = enemy.jump_height
 
         # Gravity calculations
         enemy.vel_y = min(enemy.vel_y + gravity, max_fall_speed)
