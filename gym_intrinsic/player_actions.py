@@ -48,3 +48,73 @@ def mine_block(grid, target, mining_progress, player, update_blocks):
         update_blocks()
         return None, 0
     return target, mining_progress
+
+def handle_actions(env, action):
+    _, _, _, use, destroy = action
+
+    px = env.player.rect.centerx // env.tile_size
+    py = env.player.rect.centery // env.tile_size
+    dx, dy = env.player.facing
+
+    tiles_in_sight = []
+    for step in range(1, env.player.reach + 1):
+        tx, ty = px + dx * step, py + dy * step
+        if not (0 <= tx < env.grid_width and 0 <= ty < env.grid_height):
+            break                     # went out of bounds
+        tiles_in_sight.append((tx, ty))
+    if not tiles_in_sight:
+        return
+
+    if use:
+        tx, ty = tiles_in_sight[0]
+        for cand in tiles_in_sight:
+            if env.grid[cand[1], cand[0]] == Block.EMPTY:
+                tx, ty = cand
+                break
+        dmg = place_block(env.player, env.grid, tx, ty, env._update_blocks)
+        if dmg:
+            attack_rect = pygame.Rect(
+                tx * env.tile_size,
+                ty * env.tile_size,
+                env.tile_size,
+                env.tile_size,
+            )
+            attack_entities(attack_rect, env.enemies, env.passive_mobs, env.player, dmg)
+
+    if destroy:
+        # Try to find a block to mine
+        block_target = None
+        for tx, ty in tiles_in_sight:
+            if env.grid[ty, tx] != Block.EMPTY:
+                block_target = (tx, ty)
+                break
+
+        if block_target is not None:
+            target_x, target_y = block_target
+            if (target_x, target_y) != env._mining_target:
+                env._mining_target = (target_x, target_y)
+                env._mining_progress = 0
+            env._mining_target, env._mining_progress = mine_block(
+                env.grid, (target_x, target_y),
+                env._mining_progress, env.player, env._update_blocks
+            )
+        else:
+            # No block found → reset mining
+            env._mining_target = None
+            env._mining_progress = 0
+
+            # But still attack entities at nearest tile in reach
+            for tx, ty in tiles_in_sight:
+                attack_rect = pygame.Rect(
+                    tx * env.tile_size,
+                    ty * env.tile_size,
+                    env.tile_size,
+                    env.tile_size,
+                )
+                attack_entities(
+                    attack_rect, env.enemies, env.passive_mobs, env.player, 10
+                )
+
+    else:
+        env._mining_target = None
+        env._mining_progress = 0

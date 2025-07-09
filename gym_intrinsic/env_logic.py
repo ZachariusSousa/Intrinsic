@@ -53,60 +53,6 @@ def handle_physics(env):
     env.player.handle_oxygen(in_water)
 
 
-def handle_actions(env, action):
-    _, _, _, use, destroy = action
-
-    # variables for player position and facing direction
-    px = env.player.rect.centerx // env.tile_size
-    py = env.player.rect.centery // env.tile_size
-    dx, dy = env.player.facing
-    target_x = px + dx
-    target_y = py + dy
-
-    # player isn't allowed to place or destroy blocks outside the world bounds
-    if not (0 <= target_x < env.grid_width and 0 <= target_y < env.grid_height):
-        return
-
-    # if using item in hotbar 
-    if use:
-        dmg = player_actions.place_block(
-            env.player, env.grid, target_x, target_y, env._update_blocks
-        )
-        if dmg:
-            attack_rect = pygame.Rect(
-                target_x * env.tile_size,
-                target_y * env.tile_size,
-                env.tile_size,
-                env.tile_size,
-            )
-            player_actions.attack_entities(attack_rect, env.enemies, env.passive_mobs, env.player, dmg)
-            
-    # if mining an item
-    if destroy:
-        block = env.grid[target_y, target_x]
-        target = (target_x, target_y)
-        if block != Block.EMPTY:
-            if target != env._mining_target:
-                env._mining_target = target
-                env._mining_progress = 0
-            env._mining_target, env._mining_progress = player_actions.mine_block(
-                env.grid, target, env._mining_progress, env.player, env._update_blocks
-            )
-        else:
-            env._mining_target = None
-            env._mining_progress = 0
-            attack_rect = pygame.Rect(
-                target_x * env.tile_size,
-                target_y * env.tile_size,
-                env.tile_size,
-                env.tile_size,
-            )
-            player_actions.attack_entities(attack_rect, env.enemies, env.passive_mobs, env.player, 10)
-    else:
-        env._mining_target = None
-        env._mining_progress = 0
-
-
 def update_camera(env):
     # Fallback to default screen size if screen is not initialized yet
     if env.screen:

@@ -19,6 +19,7 @@ class Player:
         )
         self.velocity = [0.0, 0.0]
         self.facing = [1, 0]
+        self.reach = 3
         self.max_health = 100
         self.health = self.max_health
         self.max_food = 100
@@ -49,6 +50,7 @@ class Player:
         self.rect.y = screen_height - self.tile_size * 2
         self.velocity = [0.0, 0.0]
         self.facing = [1, 0]
+        self.reach = 3
         self.health = self.max_health
         self.food = self.max_food
         self.oxygen = self.max_oxygen
@@ -115,4 +117,11 @@ class Player:
         elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
             self.facing = [0, 1]
         return self.facing
+    
+    def in_reach(self, tile_x: int, tile_y: int) -> bool:
+        player_tile_x = self.rect.centerx // self.tile_size
+        player_tile_y = self.rect.centery // self.tile_size
+        dist = ((tile_x - player_tile_x) ** 2 + (tile_y - player_tile_y) ** 2) ** 0.5
+        return dist <= self.reach
+
 

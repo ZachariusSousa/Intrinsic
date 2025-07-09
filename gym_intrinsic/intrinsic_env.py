@@ -111,10 +111,12 @@ class IntrinsicEnv(gym.Env):
         self.weather.step()
         env_logic.handle_input(self, action)
         env_logic.handle_physics(self)
-        env_logic.handle_actions(self, action)
         env_logic.update_camera(self)
         env_logic.maybe_extend_world(self)
         env_logic.spawn_and_update_mobs(self)
+        
+        player_actions.handle_actions(self, action)
+
 
         done = self.player.health <= 0
         reward = 0.0
