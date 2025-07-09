@@ -18,6 +18,10 @@ from . import env_logic
 from . import env_render
 
 
+# Constants
+DEFAULT_WIDTH = 1280
+DEFAULT_HEIGHT = 960
+
 
 class IntrinsicEnv(gym.Env):
     """Simple 2D platformer environment using pygame."""
@@ -26,15 +30,14 @@ class IntrinsicEnv(gym.Env):
 
     def __init__(self):
         super().__init__()
-        self.screen_width = 1280
-        self.screen_height = 960
+
         self.tile_size = 64
 
         # Actions: left, right, jump, use item, destroy block
         self.action_space = spaces.MultiBinary(5)
 
         high = np.array(
-            [self.screen_width, self.screen_height, np.finfo(np.float32).max, np.finfo(np.float32).max],
+            [DEFAULT_WIDTH, DEFAULT_HEIGHT, np.finfo(np.float32).max, np.finfo(np.float32).max],
             dtype=np.float32,
         )
         self.observation_space = spaces.Box(low=np.zeros(4, dtype=np.float32), high=high, dtype=np.float32)
@@ -43,12 +46,12 @@ class IntrinsicEnv(gym.Env):
         self.speed = 10
         self.jump_velocity = -20
 
-        self.player = Player(self.screen_height, self.tile_size)
+        self.player = Player(DEFAULT_HEIGHT, self.tile_size)
         self.facing = [1, 0]  # initially facing right
 
         # World dimensions may extend beyond the screen
-        self.grid_width = self.screen_width // self.tile_size
-        self.grid_height = (self.screen_height // self.tile_size) * 6
+        self.grid_width = DEFAULT_WIDTH // self.tile_size
+        self.grid_height = (DEFAULT_HEIGHT // self.tile_size) * 6
 
         self.world_x_offset = 0  # total tiles offset from world origin (left side)
         self.grid = world.generate_world(self.grid_width, self.grid_height, world_x_offset=self.world_x_offset)
@@ -90,7 +93,7 @@ class IntrinsicEnv(gym.Env):
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
-        self.player.reset(self.screen_height)
+        self.player.reset(DEFAULT_HEIGHT)
         self.facing = [1, 0]
         self.weather = WeatherSystem()
         # Start with an empty world and spawn mobs dynamically during gameplay

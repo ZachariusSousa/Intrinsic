@@ -108,10 +108,23 @@ def handle_actions(env, action):
 
 
 def update_camera(env):
-    world_w = env.grid_width * env.tile_size
-    world_h = env.grid_height * env.tile_size
-    env.camera_y = min(int(env.player.rect.centery - env.screen_height // 2), world_h - env.screen_height)
-    env.camera_x = max(0, min(int(env.player.rect.centerx - env.screen_width // 2), world_w - env.screen_width))
+    # Fallback to default screen size if screen is not initialized yet
+    if env.screen:
+        screen_w = env.screen.get_width()
+        screen_h = env.screen.get_height()
+    else:
+        screen_w = 1280
+        screen_h = 960
+
+
+    env.camera_x = env.player.rect.centerx - screen_w // 2
+    env.camera_y = env.player.rect.centery - screen_h // 2
+
+    # Clamp to world bounds
+    max_x = env.grid_width * env.tile_size - screen_w
+    max_y = env.grid_height * env.tile_size - screen_h
+    env.camera_x = max(0, min(env.camera_x, max_x))
+    env.camera_y = max(0, min(env.camera_y, max_y))
 
 
 def maybe_extend_world(env):

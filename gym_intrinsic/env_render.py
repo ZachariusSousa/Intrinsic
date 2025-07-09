@@ -3,13 +3,14 @@ from . import world
 from .inventory_ui import InventoryUI
 from . import items
 from .items import Block, ORE_TYPES
+from .env_logic import update_camera
 
 
 
 def render_environment(env):
     if env.screen is None:
         pygame.init()
-        env.screen = pygame.display.set_mode((env.screen_width, env.screen_height), pygame.RESIZABLE)
+        env.screen = pygame.display.set_mode((1280, 960), pygame.RESIZABLE)
         env.clock = pygame.time.Clock()
         env.font = pygame.font.SysFont(None, 24)
         if env.inventory_ui is None:
@@ -21,10 +22,11 @@ def render_environment(env):
             env.close()
             return
         elif event.type == pygame.VIDEORESIZE:
-            env.screen_width, env.screen_height = event.size
-            env.screen = pygame.display.set_mode((env.screen_width, env.screen_height), pygame.RESIZABLE)
+            env.screen = pygame.display.set_mode(event.size, pygame.RESIZABLE)
             if env.inventory_ui:
-                env.inventory_ui.reposition(env.screen_width, env.screen_height)
+                env.inventory_ui.reposition(env.screen.get_width(), env.screen.get_height())
+        update_camera(env)
+            
 
     env.screen.fill(env.weather.get_sky_color())
     light = env.weather.get_light_intensity()
@@ -42,7 +44,7 @@ def render_environment(env):
 def draw_blocks(env, light):
     for rect, block in env.blocks:
         screen_rect = rect.move(-env.camera_x, -env.camera_y)
-        if screen_rect.bottom < 0 or screen_rect.top > env.screen_height:
+        if screen_rect.bottom < 0 or screen_rect.top > env.screen.get_height():
             continue
         color = items.COLOR_MAP.get(block, (255, 255, 255))
         color = tuple(int(c * light) for c in color)
@@ -52,7 +54,7 @@ def draw_blocks(env, light):
 def draw_water(env, light):
     for rect in env.water_blocks:
         screen_rect = rect.move(-env.camera_x, -env.camera_y)
-        if screen_rect.bottom < 0 or screen_rect.top > env.screen_height:
+        if screen_rect.bottom < 0 or screen_rect.top > env.screen.get_height():
             continue
         water_color = tuple(int(c * light) for c in items.COLOR_MAP[Block.WATER])
         pygame.draw.rect(env.screen, water_color, screen_rect)
