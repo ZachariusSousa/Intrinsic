@@ -57,23 +57,46 @@ class InventoryUI:
     def handle_event(self, event) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
+            shift_held = pygame.key.get_mods() & pygame.KMOD_SHIFT
+
+            # --- HOTBAR click ---
             for idx, rect in enumerate(self.hotbar_rects):
                 if rect.collidepoint(pos):
                     item = self.player.hotbar[idx]
                     if item:
-                        self.dragging = item
-                        self.drag_from_hotbar = True
-                        self.drag_index = idx
-                        self.offset = (pos[0] - rect.x, pos[1] - rect.y)
-                        self.player.hotbar[idx] = None
+                        if shift_held:
+                            # Move from hotbar → inventory
+                            if self.player.inventory.add_item(item, 1):
+                                self.player.hotbar[idx] = None
+                        else:
+                            self.dragging = item
+                            self.drag_from_hotbar = True
+                            self.drag_index = idx
+                            self.offset = (pos[0] - rect.x, pos[1] - rect.y)
+                            self.player.hotbar[idx] = None
                     return
+
+            # --- INVENTORY click ---
             if self.show_inventory:
                 for idx, (name, rect) in enumerate(self.inv_rects):
                     if rect.collidepoint(pos) and self.player.inventory.get(name, 0) > 0:
-                        self.dragging = name
-                        self.drag_from_hotbar = False
-                        self.drag_index = idx
-                        self.offset = (pos[0] - rect.x, pos[1] - rect.y)
+                        if shift_held:
+                            # Move from inventory → hotbar
+                            for i in range(len(self.player.hotbar)):
+                                if self.player.hotbar[i] is None:
+                                    self.player.hotbar[i] = name
+                                    if self.player.inventory.get(name, 0) == 0:
+                                        # Remove duplicates from other hotbar slots
+                                        for j, slot in enumerate(self.player.hotbar):
+                                            if slot == name and j != i:
+                                                self.player.hotbar[j] = None
+                                    return
+                            # No space in hotbar
+                        else:
+                            self.dragging = name
+                            self.drag_from_hotbar = False
+                            self.drag_index = idx
+                            self.offset = (pos[0] - rect.x, pos[1] - rect.y)
                         return
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -86,13 +109,14 @@ class InventoryUI:
                         return
                 self.dragging = None
 
+
     def draw(self, surface) -> None:
         self.reposition(surface.get_width(), surface.get_height())
 
         for name, rect in self.inv_rects:
             pygame.draw.rect(surface, (200, 200, 200), rect)
             pygame.draw.rect(surface, (0, 0, 0), rect, 2)
-            if self.player.inventory.get(name, 0) > 0:
+            if self.player.inventory.get(name, 0) > 0 and name not in self.player.hotbar:
                 text = self.font.render(name[:3], True, (0, 0, 0))
                 surface.blit(text, (rect.x + 2, rect.y + 2))
                 cnt = self.player.inventory.get(name, 0)

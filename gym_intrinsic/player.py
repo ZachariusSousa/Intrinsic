@@ -29,7 +29,7 @@ class Player:
         self.inventory = Inventory(40)
         self.inventory.add_item("dirt", 10)
         # simple hotbar storing item type names for quick access
-        self.hotbar = ["dirt"] + [None] * 9
+        self.hotbar = [None] * 10
         self.selected_slot = 0
 
     def current_item(self):
