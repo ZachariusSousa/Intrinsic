@@ -41,9 +41,7 @@ def main():
                 mouse_buttons[0],  # destroy block (left mouse button)
             ], dtype=np.int8)
         else:
-                if 'agent' not in locals():
-                    agent = SimpleAgent(env)
-                action = agent.act(obs)
+            action = np.zeros(5, dtype=np.int8) 
 
         obs, reward, done, truncated, info = env.step(action)
         env.render()

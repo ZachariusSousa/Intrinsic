@@ -93,6 +93,10 @@ def draw_entities(env, light):
     else "up" if env.player.facing == [0, -1]
     else "down"
     )
+    
+    for ai in env.ai_players:
+        screen_rect = ai.rect.move(-env.camera_x, -env.camera_y)
+        pygame.draw.rect(env.screen, (0, 255, 0), screen_rect, 2)
 
     sprite = env.player_sprites[direction]
 

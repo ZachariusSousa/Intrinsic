@@ -16,6 +16,7 @@ from .items import Block, ORE_TYPES
 from . import player_actions
 from . import env_logic
 from . import env_render
+from ai_agents.simple_agent import SimpleAgent, AIPlayer
 
 
 # Constants
@@ -30,8 +31,11 @@ class IntrinsicEnv(gym.Env):
 
     def __init__(self):
         super().__init__()
+        
 
         self.tile_size = 64
+        
+        self.ai_players = []
 
         # Actions: left, right, jump, use item, destroy block
         self.action_space = spaces.MultiBinary(5)
@@ -94,6 +98,15 @@ class IntrinsicEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.player.reset(DEFAULT_HEIGHT)
+        
+        x_tile = 12  # just a few tiles over from the player
+        x_px = x_tile * self.tile_size
+        y_px = self._find_spawn_y(x_tile)
+
+        self.ai_players = [
+            AIPlayer(x_px, y_px, self.tile_size, SimpleAgent(self)),
+        ]
+        
         self.facing = [1, 0]
         self.weather = WeatherSystem()
         # Start with an empty world and spawn mobs dynamically during gameplay
@@ -116,6 +129,13 @@ class IntrinsicEnv(gym.Env):
         env_logic.spawn_and_update_mobs(self)
         
         player_actions.handle_actions(self, action)
+        
+        for ai in self.ai_players:
+            action = ai.get_action(self)
+            env_logic.handle_input_single(self, ai, action)
+            ai.apply_gravity(self.gravity)
+            ai.move_and_collide(self.blocks)
+            ai.handle_oxygen(self.in_water)
 
 
         done = self.player.health <= 0
