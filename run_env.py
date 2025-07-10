@@ -5,6 +5,7 @@ import pygame
 import gym
 import gym_intrinsic
 import numpy as np
+from ai_agents.simple_agent import SimpleAgent
  
 def main():
     parser = argparse.ArgumentParser(description="Run the gym environment")
@@ -40,7 +41,9 @@ def main():
                 mouse_buttons[0],  # destroy block (left mouse button)
             ], dtype=np.int8)
         else:
-            action = env.action_space.sample()
+                if 'agent' not in locals():
+                    agent = SimpleAgent(env)
+                action = agent.act(obs)
 
         obs, reward, done, truncated, info = env.step(action)
         env.render()
